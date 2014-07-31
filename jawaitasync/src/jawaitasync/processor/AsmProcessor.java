@@ -3,11 +3,14 @@ package jawaitasync.processor;
 import org.apache.commons.io.FileUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
+import java.util.function.Predicate;
 
 import static org.objectweb.asm.Opcodes.*;
 
@@ -36,6 +39,17 @@ public class AsmProcessor {
 
         writeClass(new File("c:/temp/out.class"), cn);
         ClassNode cn2 = readClass(new File("c:/temp/out.class"));
+
+        MethodNode mn1 = new Linq<MethodNode>(cn2.methods).first(item -> (item.name.equals("compareTo2")));
+        //mn1.instructions = new InsnList();
+        mn1.instructions.remove(mn1.instructions.getFirst());
+        mn1.instructions.insertBefore(mn1.instructions.getLast(), new InsnNode(ICONST_2));
+        System.out.println(mn1.instructions.toString());
+
+        //Opcodes
+        //System.out.println(mn1.name);
+        //System.out.println(cn2.methods.stream().anyMatch((item) -> item.name == "compareTo2"));
+
         writeClass(new File("c:/temp/out2.class"), cn2);
     }
 
@@ -43,6 +57,7 @@ public class AsmProcessor {
         ClassReader cr = new ClassReader(FileUtils.readFileToByteArray(file));
         ClassNode cn = new ClassNode();
         cr.accept(cn, 0);
+        //cn.accept(cr, 0);
         return cn;
     }
 
@@ -54,5 +69,20 @@ public class AsmProcessor {
 
     public static void main(String[] args) throws Exception {
         new AsmProcessor().test();
+    }
+}
+
+class Linq<T> {
+    private List<T> list;
+
+    Linq(List<T> list) {
+        this.list = list;
+    }
+
+    public T first(Predicate<T> predicate) {
+        for (T item : list) {
+            if (predicate.test(item)) return item;
+        }
+        return null;
     }
 }
