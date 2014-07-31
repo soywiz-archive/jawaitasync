@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="JAVA_MODULE" version="4">
-  <component name="NewModuleRootManager" inherit-compiler-output="false">
+  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_8" inherit-compiler-output="false">
     <output url="file://$MODULE_DIR$/../out" />
     <output-test url="file://$MODULE_DIR$/../outtest" />
     <exclude-output />
@@ -9,6 +9,8 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="org.ow2.asm:asm-all:5.0.3" level="project" />
+    <orderEntry type="library" name="org.apache.commons:com.springsource.org.apache.commons.io:1.4.0" level="project" />
   </component>
 </module>
 
