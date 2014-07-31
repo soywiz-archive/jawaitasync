@@ -7,7 +7,8 @@ public class PromiseTools {
 	}
 
 	static public Promise sleep(int milliseconds) {
-		//return 0;
-		return null;
+		Promise promise = new Promise();
+		EventLoop.setTimeout(promise::resolve, milliseconds);
+		return promise;
 	}
 }
