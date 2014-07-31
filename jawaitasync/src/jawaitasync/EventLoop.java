@@ -11,7 +11,7 @@ public class EventLoop {
 		return new Date().getTime();
 	}
 
-	public static void setTimeout(PromiseRunnable r, int time) {
+	public static void setTimeout(ResultRunnable r, int time) {
 		timers.add(new Timer(getNow() + time, r));
 	}
 
@@ -36,9 +36,9 @@ class HolderTimeComparator implements Comparator<Timer> {
 
 class Timer {
 	public long time;
-	public PromiseRunnable run;
+	public ResultRunnable run;
 
-	Timer(long time, PromiseRunnable run) {
+	Timer(long time, ResultRunnable run) {
 		this.time = time;
 		this.run = run;
 	}

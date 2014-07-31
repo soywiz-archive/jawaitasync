@@ -1,5 +1,5 @@
 package jawaitasync;
 
-public interface PromiseRunnable<T> {
+public interface ResultRunnable<T> {
 	void run(T state);
 }

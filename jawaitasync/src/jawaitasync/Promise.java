@@ -4,12 +4,17 @@ import java.util.LinkedList;
 import java.util.Queue;
 
 public class Promise<T> {
-	Queue<PromiseRunnable> callbacks = new LinkedList<>();
+	Queue<ResultRunnable> callbacks = new LinkedList<>();
 	boolean resolved = false;
 	T resolvedValue;
 
-	public void then(PromiseRunnable callback) {
+	public void then(ResultRunnable callback) {
 		callbacks.add(callback);
+		checkResolved();
+	}
+
+	public void then(Runnable callback) {
+		callbacks.add((e) -> callback.run());
 		checkResolved();
 	}
 
@@ -22,11 +27,12 @@ public class Promise<T> {
 	private void checkResolved() {
 		if (!resolved) return;
 		while (callbacks.peek() != null) {
-			PromiseRunnable callback = callbacks.poll();
+			ResultRunnable callback = callbacks.poll();
 			callback.run(resolvedValue);
 		}
 	}
 
 	static native public <T> T await(Promise<T> promise);
+
 	static native public <T> Promise<T> complete(T promise);
 }

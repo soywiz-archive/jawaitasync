@@ -1,36 +1,36 @@
 import jawaitasync.EventLoop;
 import jawaitasync.Promise;
-import jawaitasync.PromiseRunnable;
+import jawaitasync.ResultRunnable;
 import jawaitasync.PromiseTools;
 
-import static jawaitasync.Promise.await;
-
 public class PromiseExampleConverted {
-	class TestAsyncState {
-		int state = 0;
-	}
-
     public Promise testAsync() {
-		final PromiseRunnable<TestAsyncState>[] r = new PromiseRunnable[1];
+		final ResultRunnable[] r = new ResultRunnable[1];
 		final Promise p = new Promise();
-		final TestAsyncState state = new TestAsyncState();
 
-		r[0] = (aaa) -> {
-			switch (state.state) {
-				case 0:
-					System.out.println("hello!");
-					state.state = 1;
-					PromiseTools.sleep(1000).then(r[0]);
-					return;
-				case 1:
-					System.out.println("world!");
-					state.state = 2;
-					PromiseTools.sleep(1000).then(r[0]);
-					return;
-				case 2:
-					System.out.println("end!");
-					p.resolve(null);
-					return;
+		r[0] = new ResultRunnable() {
+			public int state = 0;
+			public int local_n = 0;
+
+			@Override
+			public void run(Object aaa) {
+				switch (this.state) {
+					case 0:
+						this.local_n = 0;
+						System.out.println("hello!" + this.local_n++);
+						this.state = 1;
+						PromiseTools.sleep(1000).then(r[0]);
+						return;
+					case 1:
+						System.out.println("world!" + this.local_n++);
+						this.state = 2;
+						PromiseTools.sleep(1000).then(r[0]);
+						return;
+					case 2:
+						System.out.println("end!" + this.local_n++);
+						p.resolve(null);
+						return;
+				}
 			}
 		};
 
