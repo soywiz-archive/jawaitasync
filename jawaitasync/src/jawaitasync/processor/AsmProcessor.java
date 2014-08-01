@@ -1,8 +1,10 @@
 package jawaitasync.processor;
 
-import com.sun.deploy.util.StringUtils;
 import jawaitasync.Promise;
 import jawaitasync.ResultRunnable;
+import jawaitasync.vfs.FileSVfs;
+import jawaitasync.vfs.SVfs;
+import jawaitasync.vfs.SVfsFile;
 import org.apache.commons.io.FileUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -11,10 +13,8 @@ import org.objectweb.asm.tree.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.objectweb.asm.Opcodes.*;
 
@@ -77,7 +77,7 @@ public class AsmProcessor {
 		Type[] args = new Type[argumentCount];
 
 		for (int n = 0; n < argumentCount; n++) {
-			LocalVariableNode lv2 = (LocalVariableNode)method.localVariables.get(n);
+			LocalVariableNode lv2 = (LocalVariableNode) method.localVariables.get(n);
 			args[n] = Type.getType(lv2.desc);
 		}
 
@@ -99,7 +99,7 @@ public class AsmProcessor {
 		mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
 
 		for (int n = 0; n < argumentCount; n++) {
-			LocalVariableNode lv2 = (LocalVariableNode)method.localVariables.get(n);
+			LocalVariableNode lv2 = (LocalVariableNode) method.localVariables.get(n);
 			mnc.instructions.add(new IntInsnNode(ALOAD, 0));
 			mnc.instructions.add(new IntInsnNode(ALOAD, n + 1));
 			mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "local_" + lv2.name, lv2.desc));
@@ -118,7 +118,7 @@ public class AsmProcessor {
 		// Convert iinc, into load and stores, so after we can convert locals into field access.
 		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
 			if (node instanceof IincInsnNode) {
-				IincInsnNode incNode = (IincInsnNode)node;
+				IincInsnNode incNode = (IincInsnNode) node;
 				InsnList list = new InsnList();
 				list.add(new VarInsnNode(ILOAD, incNode.var));
 				list.add(new IntInsnNode(BIPUSH, incNode.incr));
@@ -140,7 +140,7 @@ public class AsmProcessor {
 				LocalVariableNode localVar = (LocalVariableNode) method.localVariables.get(varNode.var);
 				InsnList list = new InsnList();
 				list.add(new VarInsnNode(ALOAD, 0));
-				System.out.println(localVar.name);
+				//System.out.println(localVar.name);
 
 				switch (varNode.getOpcode()) {
 					case ILOAD:
@@ -148,7 +148,7 @@ public class AsmProcessor {
 					case FLOAD:
 					case DLOAD:
 					case ALOAD:
-						list.add(new FieldInsnNode(GETFIELD, cn.name, "local_" + localVar.name, localVar. desc));
+						list.add(new FieldInsnNode(GETFIELD, cn.name, "local_" + localVar.name, localVar.desc));
 						break;
 					case ISTORE:
 					case LSTORE:
@@ -159,7 +159,7 @@ public class AsmProcessor {
 						list.add(new FieldInsnNode(PUTFIELD, cn.name, "local_" + localVar.name, localVar.desc));
 						break;
 					default:
-						throw(new Exception("Can't handle opcode"));
+						throw (new Exception("Can't handle opcode"));
 				}
 
 				mn.instructions.insertBefore(node, list);
@@ -167,7 +167,7 @@ public class AsmProcessor {
 				//System.out.println(varNode);
 			}
 			if (isAwaitMethodCall(node)) {
-				System.out.println("await!");
+				//System.out.println("await!");
 				InsnList list = new InsnList();
 				list.add(new VarInsnNode(ALOAD, 0));
 				list.add(new MethodInsnNode(INVOKEVIRTUAL, Type.getType(Promise.class).getInternalName(), "then", Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(ResultRunnable.class)), false));
@@ -175,7 +175,8 @@ public class AsmProcessor {
 				list.add(new IntInsnNode(BIPUSH, stateLabelNodes.size()));
 				list.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
 				list.add(new InsnNode(RETURN));
-				LabelNode awaitLabel = new LabelNode(); stateLabelNodes.add(awaitLabel);
+				LabelNode awaitLabel = new LabelNode();
+				stateLabelNodes.add(awaitLabel);
 				list.add(awaitLabel);
 				//list.add(new InsnNode(ACONST_NULL)); // Put the result of the promise here.
 				list.add(new VarInsnNode(ALOAD, 1));
@@ -212,7 +213,7 @@ public class AsmProcessor {
 		list.add(new FieldInsnNode(GETFIELD, cn.name, "state", "I"));
 		//list.add(new TableSwitchInsnNode(0, stateLabelNodes.size() - 1, startLabel, stateLabelNodes.toArray(new LabelNode[stateLabelNodes.size()])));
 
-		LabelNode[] labelNodes2 = (LabelNode[])(new Linq(stateLabelNodes).toArray(LabelNode.class));
+		LabelNode[] labelNodes2 = (LabelNode[]) (new Linq(stateLabelNodes).toArray(LabelNode.class));
 		//LabelNode startLabel = labelNodes2[0];
 		list.add(new LookupSwitchInsnNode(startLabel, Linq.range(stateLabelNodes.size()), labelNodes2));
 		mn.instructions.insert(mn.instructions.getFirst(), list);
@@ -222,15 +223,16 @@ public class AsmProcessor {
 		return cn;
 	}
 
-	public void processFile(File inputFile, File outputFile) throws Exception {
-		File originalInput = new File(inputFile.getAbsolutePath() + ".original");
-		if ((inputFile.lastModified() != originalInput.lastModified())) {
-			System.out.println("COPIED! " + originalInput.exists() + " " + inputFile.lastModified() + " " + originalInput.lastModified());
-			FileUtils.copyFile(inputFile, originalInput);
+	public void processFile(SVfsFile classFile) throws Exception {
+		SVfsFile originalClassFile = classFile.getVfs().access(classFile.getName() + ".original");
+		if ((classFile.lastModified() != originalClassFile.lastModified())) {
+			//System.out.println("COPIED! " + originalClassFile.exists() + " " + classFile.lastModified() + " " + originalClassFile.lastModified());
+
+			originalClassFile.write(classFile.read());
 		}
 
-		ClassNode clazz = readClass(originalInput);
-		ClassNode clazz2 = readClass(originalInput);
+		ClassNode clazz = readClass(originalClassFile);
+		ClassNode clazz2 = readClass(originalClassFile);
 		clazz.version = V1_6;
 
 		for (Object _method : clazz.methods) {
@@ -242,7 +244,7 @@ public class AsmProcessor {
 
 				System.out.println("Method with await! " + method.name);
 
-				LocalVariableNode[] localVariables = (LocalVariableNode[])method.localVariables.toArray(new LocalVariableNode[0]);
+				LocalVariableNode[] localVariables = (LocalVariableNode[]) method.localVariables.toArray(new LocalVariableNode[0]);
 				System.out.println("localVariables:" + localVariables);
 				method.instructions = new InsnList();
 
@@ -252,11 +254,12 @@ public class AsmProcessor {
 
 					ClassNode runClass = createTransformedClassForMethod(clazz2, method2);
 					//System.out.println(outputFile.getParent());
-					writeClass(new File(outputFile.getParent() + "/" + runClass.name + ".class"), runClass);
+
+					writeClass(classFile.getVfs().access(classFile.getParent() + "/" + runClass.name + ".class"), runClass);
 					method.instructions.add(new TypeInsnNode(NEW, runClass.name));
 					method.instructions.add(new InsnNode(DUP));
-					MethodNode mnInit = (MethodNode)runClass.methods.get(0);
-					MethodNode mnRun = (MethodNode)runClass.methods.get(1);
+					MethodNode mnInit = (MethodNode) runClass.methods.get(0);
+					MethodNode mnRun = (MethodNode) runClass.methods.get(1);
 					for (int n = 0; n < argumentCount; n++) method.instructions.add(new IntInsnNode(ALOAD, n));
 					method.instructions.add(new MethodInsnNode(INVOKESPECIAL, runClass.name, mnInit.name, mnInit.desc, false));
 					//method.instructions.add(new InsnNode(DUP));
@@ -275,66 +278,31 @@ public class AsmProcessor {
 			}
 		}
 		//FileUtils.copyFile();
-		writeClass(outputFile, clazz);
+		writeClass(classFile, clazz);
 
-		originalInput.setLastModified(inputFile.lastModified());
+		originalClassFile.setLastModified(classFile.lastModified());
+	}
+
+	public void test(SVfs vfs) throws Exception {
+		processFile(new SVfsFile(vfs, "PromiseExample.class"));
 	}
 
 	public void test() throws Exception {
-		//System.out.println("Working Directory = " + System.getProperty("user.dir") + "/../out/jawaitasync/PromiseExample.class");
-		File outputFile = new File(System.getProperty("user.dir") + "/../out/PromiseExample.class");
-		processFile(outputFile, outputFile);
-		return;
-
-//        ClassNode cn = new ClassNode();
-//        cn.version = V1_8;
-//        cn.access = ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE;
-//        cn.name = "pkg/Comparable";
-//        cn.superName = "java/lang/Object";
-//        cn.interfaces.add("pkg/Mesurable");
-//        cn.fields.add(new FieldNode(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "LESS", "I", null, new Integer(-1)));
-//        cn.fields.add(new FieldNode(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "EQUAL", "I", null, new Integer(0)));
-//        cn.fields.add(new FieldNode(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "GREATER", "I", null, new Integer(1)));
-//        cn.methods.add(new MethodNode(ACC_PUBLIC + ACC_ABSTRACT, "compareTo", "(Ljava/lang/Object;)I", null, null));
-//        MethodNode mn = new MethodNode(ACC_PUBLIC, "compareTo2", "(Ljava/lang/Object;)I", null, null);
-//        InsnList il = new InsnList();
-//        //il.add(new IntInsnNode(ILOAD_, 1));
-//        il.add(new InsnNode(ICONST_1));
-//        il.add(new InsnNode(IRETURN));
-//        mn.instructions.insert(il);
-//        cn.methods.add(mn);
-//
-//        //ClassLoader cl = new ClassLoader();
-//        //new ClassReader()
-//
-//        writeClass(new File("c:/temp/out.class"), cn);
-//        ClassNode cn2 = readClass(new File("c:/temp/out.class"));
-//
-//        MethodNode mn1 = new Linq<MethodNode>(cn2.methods).first(item -> (item.name.equals("compareTo2")));
-//        //mn1.instructions = new InsnList();
-//        mn1.instructions.remove(mn1.instructions.getFirst());
-//        mn1.instructions.insertBefore(mn1.instructions.getLast(), new InsnNode(ICONST_2));
-//        System.out.println(mn1.instructions.toString());
-//
-//        //Opcodes
-//        //System.out.println(mn1.name);
-//        //System.out.println(cn2.methods.stream().anyMatch((item) -> item.name == "compareTo2"));
-//
-//        writeClass(new File("c:/temp/out2.class"), cn2);
+		test(new FileSVfs(System.getProperty("user.dir") + "/../out"));
 	}
 
-	private static ClassNode readClass(File file) throws IOException {
-		ClassReader cr = new ClassReader(FileUtils.readFileToByteArray(file));
+	private static ClassNode readClass(SVfsFile file) throws Exception {
+		ClassReader cr = new ClassReader(file.read());
 		ClassNode cn = new ClassNode();
 		cr.accept(cn, 0);
 		//cn.accept(cr, 0);
 		return cn;
 	}
 
-	private static void writeClass(File file, ClassNode cn) throws IOException {
+	private static void writeClass(SVfsFile file, ClassNode cn) throws Exception {
 		ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
 		cn.accept(cw);
-		FileUtils.writeByteArrayToFile(file, cw.toByteArray());
+		file.write(cw.toByteArray());
 	}
 
 	public static void main(String[] args) throws Exception {

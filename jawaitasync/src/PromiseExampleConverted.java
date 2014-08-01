@@ -1,9 +1,8 @@
-import jawaitasync.EventLoop;
+import jawaitasync.loop.EventLoop;
 import jawaitasync.Promise;
 import jawaitasync.PromiseTools;
 import jawaitasync.ResultRunnable;
-
-import static jawaitasync.Promise.await;
+import jawaitasync.loop.EventLoopHolder;
 
 public class PromiseExampleConverted {
 	public Promise testAsync() {
@@ -18,7 +17,7 @@ public class PromiseExampleConverted {
 
 	public static void main(String[] args) throws Exception {
 		new PromiseExampleConverted().testAsync();
-		EventLoop.loop();
+		EventLoopHolder.instance.loop();
 	}
 }
 
@@ -36,10 +35,10 @@ class PromiseExampleConverted_testAsync_Runnable implements ResultRunnable<Objec
 		switch (this.state) {
 			case 0:
 			default:
-				System.out.println("hello!");
+				System.out.print("hello!");
 				PromiseTools.sleep(1000).then(this);this.state = 1;return;
 			case 1:
-				System.out.println("world!");
+				System.out.print("world!");
 				promise.resolve(null);
 		}
 	}

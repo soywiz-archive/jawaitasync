@@ -1,27 +1,33 @@
-package jawaitasync;
+package jawaitasync.loop;
+
+import jawaitasync.ResultRunnable;
 
 import java.util.Comparator;
 import java.util.Date;
 import java.util.TreeSet;
 
-public class EventLoop {
-	static private TreeSet<Timer> timers = new TreeSet<Timer>(new HolderTimeComparator());
+public class NormalEventLoop implements EventLoop {
+	private TreeSet<Timer> timers = new TreeSet<Timer>(new HolderTimeComparator());
 
-	public static long getNow() {
+	protected long getNow() {
 		return new Date().getTime();
 	}
 
-	public static void setTimeout(ResultRunnable r, int time) {
+	public void setTimeout(ResultRunnable r, int time) {
 		timers.add(new Timer(getNow() + time, r));
 	}
 
-	public static void loop() throws Exception {
+	public void loop() throws Exception {
 		while (!timers.isEmpty()) {
 			Timer timer = timers.pollFirst();
 			long timeToWait = timer.time - getNow();
-			if (timeToWait > 0) Thread.sleep(timeToWait);
+			if (timeToWait > 0) sleep(timeToWait);
 			timer.run.run(null);
 		}
+	}
+
+	protected void sleep(long timeToWait) throws Exception {
+		Thread.sleep(timeToWait);
 	}
 }
 
