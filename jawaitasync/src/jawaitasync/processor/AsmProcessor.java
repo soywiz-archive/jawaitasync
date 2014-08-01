@@ -130,9 +130,9 @@ public class AsmProcessor {
 		}
 
 		List<LabelNode> stateLabelNodes = new ArrayList<>();
-		//LabelNode startLabel = new LabelNode();
-		//stateLabelNodes.add(startLabel);
-		//mn.instructions.insertBefore(mn.instructions.getFirst(), startLabel);
+		LabelNode startLabel = new LabelNode();
+		stateLabelNodes.add(startLabel);
+		mn.instructions.insert(mn.instructions.getFirst(), startLabel);
 
 		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
 			if (node instanceof VarInsnNode) {
@@ -212,8 +212,8 @@ public class AsmProcessor {
 		//list.add(new TableSwitchInsnNode(0, stateLabelNodes.size() - 1, startLabel, stateLabelNodes.toArray(new LabelNode[stateLabelNodes.size()])));
 
 		LabelNode[] labelNodes2 = (LabelNode[])(new Linq(stateLabelNodes).toArray(LabelNode.class));
-		LabelNode startLabel = labelNodes2[0];
-		list.add(new LookupSwitchInsnNode(startLabel, Linq.range(1, stateLabelNodes.size()), labelNodes2));
+		//LabelNode startLabel = labelNodes2[0];
+		list.add(new LookupSwitchInsnNode(startLabel, Linq.range(stateLabelNodes.size()), labelNodes2));
 		mn.instructions.insert(mn.instructions.getFirst(), list);
 
 		cn.methods.add(mn);
@@ -243,6 +243,7 @@ public class AsmProcessor {
 
 				LocalVariableNode[] localVariables = (LocalVariableNode[])method.localVariables.toArray(new LocalVariableNode[0]);
 				System.out.println("localVariables:" + localVariables);
+				method.instructions = new InsnList();
 
 				if (true) {
 					//clazz2
@@ -251,7 +252,6 @@ public class AsmProcessor {
 					ClassNode runClass = createTransformedClassForMethod(clazz2, method2);
 					//System.out.println(outputFile.getParent());
 					writeClass(new File(outputFile.getParent() + "/" + runClass.name + ".class"), runClass);
-					method.instructions = new InsnList();
 					method.instructions.add(new TypeInsnNode(NEW, runClass.name));
 					method.instructions.add(new InsnNode(DUP));
 					MethodNode mnInit = (MethodNode)runClass.methods.get(0);
@@ -259,11 +259,12 @@ public class AsmProcessor {
 					for (int n = 0; n < argumentCount; n++) method.instructions.add(new IntInsnNode(ALOAD, n));
 					method.instructions.add(new MethodInsnNode(INVOKESPECIAL, runClass.name, mnInit.name, mnInit.desc, false));
 					//method.instructions.add(new InsnNode(DUP));
-					method.instructions.add(new IntInsnNode(ASTORE, 1));
-					method.instructions.add(new IntInsnNode(ALOAD, 1));
+					//method.instructions.add(new IntInsnNode(ASTORE, 1));
+					//method.instructions.add(new IntInsnNode(ALOAD, 1));
+					method.instructions.add(new InsnNode(DUP));
 					method.instructions.add(new InsnNode(ACONST_NULL));
 					method.instructions.add(new MethodInsnNode(INVOKEVIRTUAL, runClass.name, mnRun.name, mnRun.desc, false));
-					method.instructions.add(new IntInsnNode(ALOAD, 1));
+					//method.instructions.add(new IntInsnNode(ALOAD, 1));
 					method.instructions.add(new FieldInsnNode(GETFIELD, runClass.name, "promise", Type.getType(Promise.class).getDescriptor()));
 					method.instructions.add(new InsnNode(ARETURN));
 				} else {
