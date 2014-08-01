@@ -155,6 +155,7 @@ public class AsmProcessor {
 					case FSTORE:
 					case DSTORE:
 					case ASTORE:
+						list.add(new InsnNode(SWAP));
 						list.add(new FieldInsnNode(PUTFIELD, cn.name, "local_" + localVar.name, localVar.desc));
 						break;
 					default:
