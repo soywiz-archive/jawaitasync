@@ -11,6 +11,7 @@ import org.objectweb.asm.tree.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -55,9 +56,10 @@ public class AsmProcessor {
 
 	private ClassNode createTransformedClassForMethod(ClassNode classNode, MethodNode method) throws Exception {
 		ClassNode cn = new ClassNode();
-		cn.version = V1_8;
+		cn.version = V1_6;
 		cn.access = ACC_PUBLIC;
 		cn.name = classNode.name + "$" + method.name + "$Runnable";
+		//cn.name = classNode.name + "__" + method.name + "__Runnable";
 		cn.superName = Type.getType(Object.class).getInternalName();
 		//System.out.println("cn.superName: " + cn.superName);
 
@@ -128,9 +130,9 @@ public class AsmProcessor {
 		}
 
 		List<LabelNode> stateLabelNodes = new ArrayList<>();
-		LabelNode startLabel = new LabelNode();
-		stateLabelNodes.add(startLabel);
-		mn.instructions.insertBefore(mn.instructions.getFirst(), startLabel);
+		//LabelNode startLabel = new LabelNode();
+		//stateLabelNodes.add(startLabel);
+		//mn.instructions.insertBefore(mn.instructions.getFirst(), startLabel);
 
 		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
 			if (node instanceof VarInsnNode) {
@@ -166,14 +168,8 @@ public class AsmProcessor {
 			if (isAwaitMethodCall(node)) {
 				System.out.println("await!");
 				InsnList list = new InsnList();
-				//list.add(new InsnNode(POP));
 				list.add(new VarInsnNode(ALOAD, 0));
-				list.add(new MethodInsnNode(
-					INVOKEVIRTUAL,
-					Type.getType(Promise.class).getInternalName(),
-					"then",
-					Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(ResultRunnable.class)), false
-				));
+				list.add(new MethodInsnNode(INVOKEVIRTUAL, Type.getType(Promise.class).getInternalName(), "then", Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(ResultRunnable.class)), false));
 				list.add(new VarInsnNode(ALOAD, 0));
 				list.add(new IntInsnNode(BIPUSH, stateLabelNodes.size()));
 				list.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
@@ -213,8 +209,11 @@ public class AsmProcessor {
 		InsnList list = new InsnList();
 		list.add(new VarInsnNode(ALOAD, 0));
 		list.add(new FieldInsnNode(GETFIELD, cn.name, "state", "I"));
-		list.add(new TableSwitchInsnNode(0, stateLabelNodes.size() - 1, startLabel, stateLabelNodes.toArray(new LabelNode[stateLabelNodes.size()])));
-		//list.add(new LookupSwitchInsnNode(startLabel, Linq.range(stateLabelNodes.size()), stateLabelNodes.toArray(new LabelNode[stateLabelNodes.size()])));
+		//list.add(new TableSwitchInsnNode(0, stateLabelNodes.size() - 1, startLabel, stateLabelNodes.toArray(new LabelNode[stateLabelNodes.size()])));
+
+		LabelNode[] labelNodes2 = (LabelNode[])(new Linq(stateLabelNodes).toArray(LabelNode.class));
+		LabelNode startLabel = labelNodes2[0];
+		list.add(new LookupSwitchInsnNode(startLabel, Linq.range(1, stateLabelNodes.size()), labelNodes2));
 		mn.instructions.insertBefore(mn.instructions.getFirst(), list);
 
 		cn.methods.add(mn);
@@ -227,13 +226,16 @@ public class AsmProcessor {
 	//	return null;
 	//}
 
-	public void processFile(File file, File outputFile) throws Exception {
-		File originalInput = new File(file.getAbsolutePath() + ".original");
-		if (!originalInput.exists()) {
-			FileUtils.copyFile(file, originalInput);
+	public void processFile(File inputFile, File outputFile) throws Exception {
+		File originalInput = new File(inputFile.getAbsolutePath() + ".original");
+		if ((inputFile.lastModified() != originalInput.lastModified())) {
+			System.out.println("COPIED! " + originalInput.exists() + " " + inputFile.lastModified() + " " + originalInput.lastModified());
+			FileUtils.copyFile(inputFile, originalInput);
 		}
 
 		ClassNode clazz = readClass(originalInput);
+		clazz.version = V1_6;
+
 		for (Object _method : clazz.methods) {
 			MethodNode method = (MethodNode) _method;
 
@@ -251,46 +253,27 @@ public class AsmProcessor {
 				//System.out.println(outputFile.getParent());
 				writeClass(new File(outputFile.getParent() + "/" + runClass.name + ".class"), runClass);
 				method.instructions = new InsnList();
+
 				method.instructions.add(new TypeInsnNode(NEW, runClass.name));
 				method.instructions.add(new InsnNode(DUP));
-
 				MethodNode mnInit = (MethodNode)runClass.methods.get(0);
 				MethodNode mnRun = (MethodNode)runClass.methods.get(1);
-				//System.out.println("processFile: " + mnInit.name);
-
-				for (int n = 0; n < argumentCount; n++) {
-					method.instructions.add(new IntInsnNode(ALOAD, n));
-					//System.out.println("argumentCount:" + localVariables[n].name);
-				}
-
-				method.instructions.add(new MethodInsnNode(
-					INVOKESPECIAL,
-					runClass.name,
-					//Type.getType(Promise.class).getInternalName(),
-					mnInit.name,
-					mnInit.desc,
-					false
-				));
-				method.instructions.add(new InsnNode(DUP));
+				for (int n = 0; n < argumentCount; n++) method.instructions.add(new IntInsnNode(ALOAD, n));
+				method.instructions.add(new MethodInsnNode(INVOKESPECIAL, runClass.name, mnInit.name, mnInit.desc, false));
+				//method.instructions.add(new InsnNode(DUP));
+				method.instructions.add(new IntInsnNode(ASTORE, 1));
+				method.instructions.add(new IntInsnNode(ALOAD, 1));
 				method.instructions.add(new InsnNode(ACONST_NULL));
-				method.instructions.add(new MethodInsnNode(
-					INVOKEVIRTUAL,
-					runClass.name,
-					//Type.getType(Promise.class).getInternalName(),
-					mnRun.name,
-					mnRun.desc,
-					false
-				));
+				method.instructions.add(new MethodInsnNode(INVOKEVIRTUAL, runClass.name, mnRun.name, mnRun.desc, false));
+				method.instructions.add(new IntInsnNode(ALOAD, 1));
 				method.instructions.add(new FieldInsnNode(GETFIELD, runClass.name, "promise", Type.getType(Promise.class).getDescriptor()));
-				//<init>
-				//method.instructions.add(new TypeInsnNode(NEW, runClass.name));
 				method.instructions.add(new InsnNode(ARETURN));
-				//System.out.println(method.desc);
-
 			}
 		}
 		//FileUtils.copyFile();
 		writeClass(outputFile, clazz);
+
+		originalInput.setLastModified(inputFile.lastModified());
 	}
 
 	public void test() throws Exception {
@@ -345,7 +328,7 @@ public class AsmProcessor {
 	}
 
 	private static void writeClass(File file, ClassNode cn) throws IOException {
-		ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+		ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
 		cn.accept(cw);
 		FileUtils.writeByteArrayToFile(file, cw.toByteArray());
 	}
@@ -373,10 +356,39 @@ class Linq<T> implements Iterable<T> {
 		return null;
 	}
 
+	public Linq<T> skip(int count) {
+		List<T> out = new LinkedList<>();
+		for (T item : list) {
+			if (count <= 0) {
+				out.add(item);
+			} else {
+				count--;
+			}
+		}
+		return new Linq(out);
+	}
+
 	static public int[] range(int count) {
+		return range(0, count);
+	}
+
+	static public int[] range(int start, int count) {
 		int[] result = new int[count];
-		for (int n = 0; n < count; n++) result[n] = n;
+		for (int n = 0; n < count; n++) result[n] = n + start;
 		return result;
+	}
+
+	public <T> List<T> toList(Class<T> clazz) {
+		List<T> list = new ArrayList<T>();
+		for (Object item : this) list.add((T)item);
+		return list;
+	}
+
+	public <T> T[] toArray(Class<T> clazz) {
+		List<T> list = toList(clazz);
+		Object array = Array.newInstance(clazz, list.size());
+		for (int n = 0; n < list.size(); n++) Array.set(array, n, list.get(n));
+		return (T[])array;
 	}
 
 	@Override

@@ -1,3 +1,4 @@
+import jawaitasync.EventLoop;
 import jawaitasync.Promise;
 import jawaitasync.PromiseTools;
 import jawaitasync.processor.AsmProcessor;
@@ -23,5 +24,10 @@ public class PromiseExample {
 
 	static {
 		System.out.println("PromiseExample.static");
+	}
+
+	public static void main(String[] args) throws Exception {
+		new PromiseExample().testAsync();
+		EventLoop.loop();
 	}
 }

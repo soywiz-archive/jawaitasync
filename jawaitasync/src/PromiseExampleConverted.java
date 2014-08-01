@@ -12,6 +12,10 @@ public class PromiseExampleConverted {
 		return local.promise;
 	}
 
+	static {
+		System.out.println("PromiseExampleConverted.static");
+	}
+
 	public static void main(String[] args) throws Exception {
 		new PromiseExampleConverted().testAsync();
 		EventLoop.loop();
