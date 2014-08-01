@@ -15,15 +15,14 @@ public class AsmProcessorLoader extends ClassLoader {
 	@Override
 	protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
 		try {
-			String classFileName = name + ".class";
+			String classFileName = "/" + name.replace('.', '/') + ".class";
 			SVfsFile classFile = vfs.access(classFileName);
 			if (!classFile.exists()) {
 				Class<?> newClass = super.loadClass(name, resolve);
 				byte[] data = InputStreamUtils.load(newClass.getResourceAsStream(classFileName));
 				if (data == null) return newClass;
-
 				classFile.write(data);
-				new AsmProcessor().processFile(classFile);
+				if (!(new AsmProcessor().processFile(classFile))) return newClass;
 			}
 			byte[] classData = classFile.read();
 			return this.defineClass(name, classData, 0, classData.length);

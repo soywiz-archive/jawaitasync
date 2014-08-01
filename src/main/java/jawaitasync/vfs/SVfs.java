@@ -6,6 +6,7 @@ abstract public class SVfs {
 
 	private String normalizeName(String name) {
 		while ((name.length() > 0) && name.startsWith("/")) name = name.substring(1);
+		while ((name.length() > 0) && name.startsWith("\\")) name = name.substring(1);
 		return name;
 	}
 

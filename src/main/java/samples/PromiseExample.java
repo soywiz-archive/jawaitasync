@@ -1,3 +1,5 @@
+package samples;
+
 import jawaitasync.Promise;
 import jawaitasync.PromiseTools;
 import jawaitasync.loop.EventLoopHolder;
@@ -25,7 +27,7 @@ public class PromiseExample {
 	}
 
 	static {
-		//System.out.println("PromiseExample.static");
+		//System.out.println("samples.PromiseExample.static");
 	}
 
 	public static void main(String[] args) throws Exception {

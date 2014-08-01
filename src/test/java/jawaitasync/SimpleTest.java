@@ -1,37 +1,24 @@
 package jawaitasync;
 
-import jawaitasync.loop.EventLoopHolder;
-import jawaitasync.loop.MockedEventLoop;
-import jawaitasync.processor.AsmProcessorLoader;
-import org.junit.Assert;
-
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.lang.reflect.Method;
+import samples.AwaitAsyncCompositionExample;
+import samples.LoopExample;
+import samples.PromiseExample;
 
 public class SimpleTest {
 	@org.junit.Test
-	public void testName() throws Exception {
-		EventLoopHolder.instance = new MockedEventLoop();
-
-		//SVfs vfs = new FileSVfs(System.getProperty("user.dir") + "/../out");
-		ClassLoader loader = new AsmProcessorLoader(ClassLoader.getSystemClassLoader());
-		//Class clazz = loader.loadClass("PromiseExample");
-		//Class clazz = loader.loadClass(PromiseExample.class.getName());
-		Class clazz = loader.loadClass("PromiseExample");
-		Method method = clazz.getMethod("testAsync");
-		method.setAccessible(true);
-		Object instance = clazz.newInstance();
-
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		PrintStream oldOut = System.out;
-		System.setOut(new PrintStream(baos));
-
-		Promise promise = (Promise) method.invoke(instance);
-		EventLoopHolder.instance.loop();
-
-		System.setOut(oldOut);
-
-		Assert.assertEquals("hello!0[0:1000]world!1", baos.toString());
+	public void testSimple() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("hello!0[0:1000]world!1", PromiseExample.class.getTypeName(), "testAsync");
 	}
+
+	@org.junit.Test
+	public void testComposition() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("{1}[0:1000]{2}{3}[1000:1000]", AwaitAsyncCompositionExample.class.getTypeName(), "testAsync");
+	}
+
+	/*
+	@org.junit.Test
+	public void testLoop() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("", LoopExample.class.getTypeName(), "testAsync");
+	}
+	*/
 }

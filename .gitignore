@@ -1,4 +1,7 @@
-*.iws
 out
 target
 *.class
+.idea
+*.iml
+*.ipr
+*.iws

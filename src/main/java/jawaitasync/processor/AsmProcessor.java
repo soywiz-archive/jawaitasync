@@ -56,7 +56,7 @@ public class AsmProcessor {
 
 	private ClassNode createTransformedClassForMethod(ClassNode classNode, MethodNode method) throws Exception {
 		ClassNode cn = new ClassNode();
-		cn.version = V1_6;
+		cn.version = V1_8;
 		cn.access = ACC_PUBLIC;
 		cn.name = classNode.name + "$" + method.name + "$Runnable";
 		//cn.name = classNode.name + "__" + method.name + "__Runnable";
@@ -223,8 +223,9 @@ public class AsmProcessor {
 		return cn;
 	}
 
-	public void processFile(SVfsFile classFile) throws Exception {
+	public boolean processFile(SVfsFile classFile) throws Exception {
 		SVfsFile originalClassFile = classFile.getVfs().access(classFile.getName() + ".original");
+
 		if ((classFile.lastModified() != originalClassFile.lastModified())) {
 			//System.out.println("COPIED! " + originalClassFile.exists() + " " + classFile.lastModified() + " " + originalClassFile.lastModified());
 
@@ -233,12 +234,15 @@ public class AsmProcessor {
 
 		ClassNode clazz = readClass(originalClassFile);
 		ClassNode clazz2 = readClass(originalClassFile);
-		clazz.version = V1_6;
+		clazz.version = V1_8;
+
+		int awaitMethodCount = 0;
 
 		for (Object _method : clazz.methods) {
 			MethodNode method = (MethodNode) _method;
 
 			if (hasAwait(method)) {
+				awaitMethodCount++;
 				int argumentCount = getMethodArgumentCountIncludingThis(method);
 				System.out.println("argumentCount:" + argumentCount);
 
@@ -255,7 +259,8 @@ public class AsmProcessor {
 					ClassNode runClass = createTransformedClassForMethod(clazz2, method2);
 					//System.out.println(outputFile.getParent());
 
-					writeClass(classFile.getVfs().access(classFile.getParent() + "/" + runClass.name + ".class"), runClass);
+					System.out.println(runClass.name + ".class");
+					writeClass(classFile.getVfs().access(runClass.name + ".class"), runClass);
 					method.instructions.add(new TypeInsnNode(NEW, runClass.name));
 					method.instructions.add(new InsnNode(DUP));
 					MethodNode mnInit = (MethodNode) runClass.methods.get(0);
@@ -277,18 +282,14 @@ public class AsmProcessor {
 				}
 			}
 		}
-		//FileUtils.copyFile();
-		writeClass(classFile, clazz);
 
-		originalClassFile.setLastModified(classFile.lastModified());
-	}
-
-	public void test(SVfs vfs) throws Exception {
-		processFile(new SVfsFile(vfs, "PromiseExample.class"));
-	}
-
-	public void test() throws Exception {
-		test(new FileSVfs(System.getProperty("user.dir") + "/../out"));
+		if (awaitMethodCount > 0) {
+			writeClass(classFile, clazz);
+			originalClassFile.setLastModified(classFile.lastModified());
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 	private static ClassNode readClass(SVfsFile file) throws Exception {
@@ -303,10 +304,6 @@ public class AsmProcessor {
 		ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
 		cn.accept(cw);
 		file.write(cw.toByteArray());
-	}
-
-	public static void main(String[] args) throws Exception {
-		new AsmProcessor().test();
 	}
 }
 

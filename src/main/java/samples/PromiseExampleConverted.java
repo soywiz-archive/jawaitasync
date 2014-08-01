@@ -1,4 +1,5 @@
-import jawaitasync.loop.EventLoop;
+package samples;
+
 import jawaitasync.Promise;
 import jawaitasync.PromiseTools;
 import jawaitasync.ResultRunnable;
@@ -12,7 +13,7 @@ public class PromiseExampleConverted {
 	}
 
 	static {
-		System.out.println("PromiseExampleConverted.static");
+		System.out.println("samples.PromiseExampleConverted.static");
 	}
 
 	public static void main(String[] args) throws Exception {
