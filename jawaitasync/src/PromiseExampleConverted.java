@@ -1,48 +1,48 @@
-import jawaitasync.EventLoop;
 import jawaitasync.Promise;
-import jawaitasync.ResultRunnable;
 import jawaitasync.PromiseTools;
+import jawaitasync.ResultRunnable;
+
+import static jawaitasync.Promise.await;
 
 public class PromiseExampleConverted {
-    public Promise testAsync() {
-		final ResultRunnable[] r = new ResultRunnable[1];
-		final Promise p = new Promise();
+	public Promise testAsync() {
+		System.out.println("hello!");
+		await(PromiseTools.sleep(1000));
+		System.out.println("world!");
+		return Promise.complete(null);
+		/*
+		int n = 0;
+        System.out.println("hello!" + n++);
+        await(PromiseTools.sleep(1000));
+        System.out.println("world!" + n++);
+        await(PromiseTools.sleep(1000));
+        System.out.println("end!" + n++);
+        return Promise.complete(null);
+        */
+	}
+}
 
-		r[0] = new ResultRunnable() {
-			public int state = 0;
-			public int local_n = 0;
+public class PromiseExampleConverted_testAsync_Runnable implements ResultRunnable {
+	public int state = 0;
+	public Promise promise = new Promise();
+	public PromiseExample local_this;
 
-			@Override
-			public void run(Object aaa) {
-				switch (this.state) {
-					case 0:
-						this.local_n = 0;
-						System.out.println("hello!" + this.local_n++);
-						this.state = 1;
-						PromiseTools.sleep(1000).then(r[0]);
-						return;
-					case 1:
-						System.out.println("world!" + this.local_n++);
-						this.state = 2;
-						PromiseTools.sleep(1000).then(r[0]);
-						return;
-					case 2:
-						System.out.println("end!" + this.local_n++);
-						p.resolve(null);
-						return;
-				}
-			}
-		};
+	public PromiseExampleConverted_testAsync_Runnable(PromiseExample paramPromiseExample)
+	{
+		this.local_this = paramPromiseExample;
+	}
 
-		r[0].run(null);
-
-        return p;
-    }
-
-	public static void main(String[] args) throws Exception {
-		PromiseExampleConverted base = new PromiseExampleConverted();
-		base.testAsync().then(e -> {
-		});
-		EventLoop.loop();
+	public void run(Object paramObject)
+	{
+		switch (this.state)
+		{
+			case 0:
+			default:
+				System.out.println("hello!");
+				PromiseTools.sleep(1000).then(this);this.state = 1;return;
+			case 1:
+				System.out.println("world!");
+				promise.resolve(null);
+		}
 	}
 }

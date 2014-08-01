@@ -1,5 +1,5 @@
 package jawaitasync;
 
 public interface ResultRunnable<T> {
-	void run(T state);
+	void run(T value);
 }

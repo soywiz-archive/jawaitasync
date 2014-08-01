@@ -1,5 +1,6 @@
 import jawaitasync.Promise;
 import jawaitasync.PromiseTools;
+import jawaitasync.processor.AsmProcessor;
 
 import static jawaitasync.Promise.await;
 
@@ -19,4 +20,8 @@ public class PromiseExample {
         return Promise.complete(null);
         */
     }
+
+	static {
+		System.out.println("PromiseExample.static");
+	}
 }

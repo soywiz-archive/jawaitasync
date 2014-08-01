@@ -1,9 +1,12 @@
 package jawaitasync.processor;
 
 import com.sun.deploy.util.StringUtils;
+import jawaitasync.Promise;
+import jawaitasync.ResultRunnable;
 import org.apache.commons.io.FileUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 import java.io.File;
@@ -14,6 +17,9 @@ import java.util.function.Predicate;
 
 import static org.objectweb.asm.Opcodes.*;
 
+/**
+ * http://asm.ow2.org/asm40/javadoc/user/org/objectweb/asm/MethodVisitor.html
+ */
 public class AsmProcessor {
 	static private boolean isAwaitMethodCall(AbstractInsnNode node) {
 		if (!(node instanceof MethodInsnNode)) return false;
@@ -39,20 +45,69 @@ public class AsmProcessor {
 		return false;
 	}
 
+	private int getMethodArgumentCountIncludingThis(MethodNode method) {
+		boolean isStatic = ((method.access & ACC_STATIC) != 0);
+		int argumentCount = 0;
+		if (!isStatic) argumentCount++;
+		if (method.parameters != null) argumentCount += method.parameters.size();
+		return argumentCount;
+	}
+
 	private ClassNode createTransformedClassForMethod(ClassNode classNode, MethodNode method) throws Exception {
 		ClassNode cn = new ClassNode();
 		cn.version = V1_8;
 		cn.access = ACC_PUBLIC;
 		cn.name = classNode.name + "$" + method.name + "$Runnable";
-		cn.superName = "java/lang/Object";
-		cn.interfaces.add("java/lang/Runnable");
+		cn.superName = Type.getType(Object.class).getInternalName();
+		//System.out.println("cn.superName: " + cn.superName);
 
-		cn.fields.add(new FieldNode(ACC_PUBLIC, "state", "I", null, new Integer(0)));
+		cn.interfaces.add(Type.getType(ResultRunnable.class).getInternalName());
+
+		cn.fields.add(new FieldNode(ACC_PUBLIC, "state", "I", null, null));
+		cn.fields.add(new FieldNode(ACC_PUBLIC, "promise", Type.getType(Promise.class).getDescriptor(), null, null));
+
+		int argumentCount = getMethodArgumentCountIncludingThis(method);
+
 		for (LocalVariableNode lv : new Linq<LocalVariableNode>(method.localVariables)) {
 			cn.fields.add(new FieldNode(ACC_PUBLIC, "local_" + lv.name, lv.desc, null, null));
 		}
 
-		MethodNode mn = new MethodNode(ACC_PUBLIC, "run", "()V", null, null);
+		Type[] args = new Type[argumentCount];
+
+		for (int n = 0; n < argumentCount; n++) {
+			LocalVariableNode lv2 = (LocalVariableNode)method.localVariables.get(n);
+			args[n] = Type.getType(lv2.desc);
+		}
+
+		// this, arguments from the function
+		MethodNode mnc = new MethodNode(ACC_PUBLIC, "<init>", Type.getMethodType(Type.VOID_TYPE, args).getDescriptor(), null, null);
+		mnc.instructions.add(new IntInsnNode(ALOAD, 0));
+		mnc.instructions.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false));
+
+		Type promiseType = Type.getType(Promise.class);
+
+		mnc.instructions.add(new IntInsnNode(ALOAD, 0));
+		mnc.instructions.add(new TypeInsnNode(NEW, promiseType.getInternalName()));
+		mnc.instructions.add(new InsnNode(DUP));
+		mnc.instructions.add(new MethodInsnNode(INVOKESPECIAL, promiseType.getInternalName(), "<init>", Type.getMethodDescriptor(Type.VOID_TYPE), false));
+		mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "promise", promiseType.getDescriptor()));
+
+		mnc.instructions.add(new IntInsnNode(ALOAD, 0));
+		mnc.instructions.add(new IntInsnNode(BIPUSH, 0));
+		mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
+
+		for (int n = 0; n < argumentCount; n++) {
+			LocalVariableNode lv2 = (LocalVariableNode)method.localVariables.get(n);
+			mnc.instructions.add(new IntInsnNode(ALOAD, 0));
+			mnc.instructions.add(new IntInsnNode(ALOAD, n + 1));
+			mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "local_" + lv2.name, lv2.desc));
+		}
+
+		mnc.instructions.add(new InsnNode(RETURN));
+
+		cn.methods.add(mnc);
+
+		MethodNode mn = new MethodNode(ACC_PUBLIC, "run", Type.getMethodType(Type.VOID_TYPE, Type.getType(Object.class)).getDescriptor(), null, null);
 
 		//mn.localVariables.add(0, new LocalVariableNode("this", cn.name, ));
 
@@ -109,20 +164,27 @@ public class AsmProcessor {
 				//System.out.println(varNode);
 			}
 			if (isAwaitMethodCall(node)) {
-
+				System.out.println("await!");
 				InsnList list = new InsnList();
-				list.add(new InsnNode(POP));
+				//list.add(new InsnNode(POP));
+				list.add(new VarInsnNode(ALOAD, 0));
+				list.add(new MethodInsnNode(
+					INVOKEVIRTUAL,
+					Type.getType(Promise.class).getInternalName(),
+					"then",
+					Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(ResultRunnable.class)), false
+				));
 				list.add(new VarInsnNode(ALOAD, 0));
 				list.add(new IntInsnNode(BIPUSH, stateLabelNodes.size()));
 				list.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
 				list.add(new InsnNode(RETURN));
 				LabelNode awaitLabel = new LabelNode(); stateLabelNodes.add(awaitLabel);
 				list.add(awaitLabel);
-				list.add(new InsnNode(ACONST_NULL)); // Put the result of the promise here.
+				//list.add(new InsnNode(ACONST_NULL)); // Put the result of the promise here.
+				list.add(new VarInsnNode(ALOAD, 1));
 
 				mn.instructions.insertBefore(node, list);
 				mn.instructions.remove(node);
-				System.out.println("await!");
 			}
 			if (isCompleteMethodCall(node)) {
 				mn.instructions.insertBefore(node, new InsnNode(POP));
@@ -153,15 +215,53 @@ public class AsmProcessor {
 		return cn;
 	}
 
+	//private MethodNode getMethodWithName(ClassNode cn, String name) {
+	//	for (MethodNode mn : (MethodNode[])cn.methods.toArray(new MethodNode[0])) if (mn.name == name) return mn;
+	//	return null;
+	//}
+
 	public void processFile(File file) throws Exception {
 		ClassNode clazz = readClass(file);
 		for (Object _method : clazz.methods) {
 			MethodNode method = (MethodNode) _method;
 
 			if (hasAwait(method)) {
+				int argumentCount = getMethodArgumentCountIncludingThis(method);
+				System.out.println("argumentCount:" + argumentCount);
+
 				System.out.println("Method with await! " + method.name);
+
+				LocalVariableNode[] localVariables = (LocalVariableNode[])method.localVariables.toArray(new LocalVariableNode[0]);
+				System.out.println("localVariables:" + localVariables);
+
 				ClassNode runClass = createTransformedClassForMethod(clazz, method);
+
+
 				writeClass(new File("c:/temp/" + runClass.name + ".class"), runClass);
+				method.instructions = new InsnList();
+				method.instructions.add(new TypeInsnNode(NEW, runClass.name));
+				method.instructions.add(new InsnNode(DUP));
+
+				MethodNode mnInit = (MethodNode)runClass.methods.get(0);
+				//System.out.println("processFile: " + mnInit.name);
+
+				for (int n = 0; n < argumentCount; n++) {
+					method.instructions.add(new IntInsnNode(ALOAD, n));
+					//System.out.println("argumentCount:" + localVariables[n].name);
+				}
+
+				method.instructions.add(new MethodInsnNode(
+					INVOKESPECIAL,
+					runClass.name,
+					//Type.getType(Promise.class).getInternalName(),
+					"<init>",
+					mnInit.desc,
+					false
+				));
+				method.instructions.add(new FieldInsnNode(GETFIELD, runClass.name, "promise", Type.getType(Promise.class).getDescriptor()));
+				//<init>
+				//method.instructions.add(new TypeInsnNode(NEW, runClass.name));
+				method.instructions.add(new InsnNode(ARETURN));
 				//System.out.println(method.desc);
 
 			}
@@ -227,51 +327,6 @@ public class AsmProcessor {
 
 	public static void main(String[] args) throws Exception {
 		new AsmProcessor().test();
-	}
-}
-
-interface Type {
-}
-
-class TypeVoid implements Type {
-	@Override
-	public String toString() {
-		return "V";
-	}
-}
-
-class TypeInteger implements Type {
-	@Override
-	public String toString() {
-		return "I";
-	}
-}
-
-class TypeClass implements Type {
-	private Class clazz;
-
-	TypeClass(Class clazz) {
-		this.clazz = clazz;
-	}
-
-	@Override
-	public String toString() {
-		return "T" + this.clazz.getName().replace('.', '/') + ";";
-	}
-}
-
-class TypeMethod implements Type {
-	private Type[] argumentTypes;
-	private Type returnType;
-
-	TypeMethod(Type[] argumentTypes, Type returnType) {
-		this.argumentTypes = argumentTypes;
-		this.returnType = returnType;
-	}
-
-	@Override
-	public String toString() {
-		return "(" + StringUtils.join(Arrays.asList(argumentTypes), "") + ")" + this.returnType;
 	}
 }
 
