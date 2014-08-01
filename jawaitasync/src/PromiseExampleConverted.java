@@ -1,3 +1,4 @@
+import jawaitasync.EventLoop;
 import jawaitasync.Promise;
 import jawaitasync.PromiseTools;
 import jawaitasync.ResultRunnable;
@@ -6,36 +7,29 @@ import static jawaitasync.Promise.await;
 
 public class PromiseExampleConverted {
 	public Promise testAsync() {
-		System.out.println("hello!");
-		await(PromiseTools.sleep(1000));
-		System.out.println("world!");
-		return Promise.complete(null);
-		/*
-		int n = 0;
-        System.out.println("hello!" + n++);
-        await(PromiseTools.sleep(1000));
-        System.out.println("world!" + n++);
-        await(PromiseTools.sleep(1000));
-        System.out.println("end!" + n++);
-        return Promise.complete(null);
-        */
+		PromiseExampleConverted_testAsync_Runnable local = new PromiseExampleConverted_testAsync_Runnable(this);
+		local.run(null);
+		return local.promise;
+	}
+
+	public static void main(String[] args) throws Exception {
+		new PromiseExampleConverted().testAsync();
+		EventLoop.loop();
 	}
 }
 
-public class PromiseExampleConverted_testAsync_Runnable implements ResultRunnable {
+class PromiseExampleConverted_testAsync_Runnable implements ResultRunnable<Object> {
 	public int state = 0;
 	public Promise promise = new Promise();
-	public PromiseExample local_this;
+	public PromiseExampleConverted local_this;
 
-	public PromiseExampleConverted_testAsync_Runnable(PromiseExample paramPromiseExample)
+	public PromiseExampleConverted_testAsync_Runnable(PromiseExampleConverted paramPromiseExampleConverted)
 	{
-		this.local_this = paramPromiseExample;
+		this.local_this = paramPromiseExampleConverted;
 	}
 
-	public void run(Object paramObject)
-	{
-		switch (this.state)
-		{
+	public void run(Object paramObject) {
+		switch (this.state) {
 			case 0:
 			default:
 				System.out.println("hello!");

@@ -186,8 +186,15 @@ public class AsmProcessor {
 				mn.instructions.insertBefore(node, list);
 				mn.instructions.remove(node);
 			}
+
 			if (isCompleteMethodCall(node)) {
-				mn.instructions.insertBefore(node, new InsnNode(POP));
+				InsnList list = new InsnList();
+				list.add(new IntInsnNode(ALOAD, 0));
+				list.add(new FieldInsnNode(GETFIELD, cn.name, "promise", promiseType.getDescriptor()));
+				list.add(new InsnNode(SWAP));
+				list.add(new MethodInsnNode(INVOKEVIRTUAL, promiseType.getInternalName(), "resolve", Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(Object.class)), false));
+
+				mn.instructions.insertBefore(node, list);
 				mn.instructions.remove(node);
 			}
 
@@ -220,8 +227,13 @@ public class AsmProcessor {
 	//	return null;
 	//}
 
-	public void processFile(File file) throws Exception {
-		ClassNode clazz = readClass(file);
+	public void processFile(File file, File outputFile) throws Exception {
+		File originalInput = new File(file.getAbsolutePath() + ".original");
+		if (!originalInput.exists()) {
+			FileUtils.copyFile(file, originalInput);
+		}
+
+		ClassNode clazz = readClass(originalInput);
 		for (Object _method : clazz.methods) {
 			MethodNode method = (MethodNode) _method;
 
@@ -236,13 +248,14 @@ public class AsmProcessor {
 
 				ClassNode runClass = createTransformedClassForMethod(clazz, method);
 
-
-				writeClass(new File("c:/temp/" + runClass.name + ".class"), runClass);
+				//System.out.println(outputFile.getParent());
+				writeClass(new File(outputFile.getParent() + "/" + runClass.name + ".class"), runClass);
 				method.instructions = new InsnList();
 				method.instructions.add(new TypeInsnNode(NEW, runClass.name));
 				method.instructions.add(new InsnNode(DUP));
 
 				MethodNode mnInit = (MethodNode)runClass.methods.get(0);
+				MethodNode mnRun = (MethodNode)runClass.methods.get(1);
 				//System.out.println("processFile: " + mnInit.name);
 
 				for (int n = 0; n < argumentCount; n++) {
@@ -254,8 +267,18 @@ public class AsmProcessor {
 					INVOKESPECIAL,
 					runClass.name,
 					//Type.getType(Promise.class).getInternalName(),
-					"<init>",
+					mnInit.name,
 					mnInit.desc,
+					false
+				));
+				method.instructions.add(new InsnNode(DUP));
+				method.instructions.add(new InsnNode(ACONST_NULL));
+				method.instructions.add(new MethodInsnNode(
+					INVOKEVIRTUAL,
+					runClass.name,
+					//Type.getType(Promise.class).getInternalName(),
+					mnRun.name,
+					mnRun.desc,
 					false
 				));
 				method.instructions.add(new FieldInsnNode(GETFIELD, runClass.name, "promise", Type.getType(Promise.class).getDescriptor()));
@@ -266,12 +289,14 @@ public class AsmProcessor {
 
 			}
 		}
-		writeClass(new File("c:/temp/" + clazz.name + ".class"), clazz);
+		//FileUtils.copyFile();
+		writeClass(outputFile, clazz);
 	}
 
 	public void test() throws Exception {
 		//System.out.println("Working Directory = " + System.getProperty("user.dir") + "/../out/jawaitasync/PromiseExample.class");
-		processFile(new File(System.getProperty("user.dir") + "/../out/PromiseExample.class"));
+		File outputFile = new File(System.getProperty("user.dir") + "/../out/PromiseExample.class");
+		processFile(outputFile, outputFile);
 		return;
 
 //        ClassNode cn = new ClassNode();
