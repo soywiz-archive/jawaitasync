@@ -1,2 +1,4 @@
 *.iws
 out
+target
+*.class

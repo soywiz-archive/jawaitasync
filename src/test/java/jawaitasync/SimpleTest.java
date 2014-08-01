@@ -1,18 +1,13 @@
-import jawaitasync.Promise;
-import jawaitasync.PromiseTools;
+package jawaitasync;
+
 import jawaitasync.loop.EventLoopHolder;
 import jawaitasync.loop.MockedEventLoop;
 import jawaitasync.processor.AsmProcessorLoader;
-import jawaitasync.vfs.FileSVfs;
-import jawaitasync.vfs.SVfs;
-import jawaitasync.vfs.SVfsLoader;
 import org.junit.Assert;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
-
-import static jawaitasync.Promise.await;
 
 public class SimpleTest {
 	@org.junit.Test

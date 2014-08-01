@@ -1,44 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<vertx.version>2.1.1</vertx.version>
-	</properties>
-  
-  
-	<groupId>soywiz.jawaitasync</groupId>
-	<artifactId>jawaitasync</artifactId>
-	<version>0.0.1</version>
-	<packaging>pom</packaging>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
-	<name>jawaitasync</name>
-	<url>https://github.com/soywiz/jawaitasync</url>
+    <groupId>com.codesolid</groupId>
+    <artifactId>HelloJUnit</artifactId>
+    <version>1.0</version>
 
-
-	<scm>
-		<connection>git@github.com:soywiz/jawaitasync.git</connection>
-		<url>https://github.com/soywiz/jawaitasync</url>
-	</scm>
-
-	<issueManagement>
-		<system>GitHub</system>
-		<url>https://github.com/soywiz/jawaitasync/issues</url>
-	</issueManagement>
-
-
-	<dependencies>
-
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.11</version>
-			<type>jar</type>
-			<scope>test</scope>
-		</dependency>
-
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.11</version>
+            <scope>test</scope>
+        </dependency>
+		
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>com.springsource.org.apache.commons.io</artifactId>
@@ -50,11 +31,8 @@
 			<artifactId>asm-all</artifactId>
 			<version>5.0.3</version>
 		</dependency>
+    </dependencies>
 
-	</dependencies>  
-  
-  
-  
 	<build>
 		<plugins>
 			<plugin>
@@ -69,6 +47,5 @@
 			</plugin>
 		</plugins>
 	</build>
-
 
 </project>
