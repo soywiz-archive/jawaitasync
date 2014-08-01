@@ -214,17 +214,12 @@ public class AsmProcessor {
 		LabelNode[] labelNodes2 = (LabelNode[])(new Linq(stateLabelNodes).toArray(LabelNode.class));
 		LabelNode startLabel = labelNodes2[0];
 		list.add(new LookupSwitchInsnNode(startLabel, Linq.range(1, stateLabelNodes.size()), labelNodes2));
-		mn.instructions.insertBefore(mn.instructions.getFirst(), list);
+		mn.instructions.insert(mn.instructions.getFirst(), list);
 
 		cn.methods.add(mn);
 
 		return cn;
 	}
-
-	//private MethodNode getMethodWithName(ClassNode cn, String name) {
-	//	for (MethodNode mn : (MethodNode[])cn.methods.toArray(new MethodNode[0])) if (mn.name == name) return mn;
-	//	return null;
-	//}
 
 	public void processFile(File inputFile, File outputFile) throws Exception {
 		File originalInput = new File(inputFile.getAbsolutePath() + ".original");
@@ -234,6 +229,7 @@ public class AsmProcessor {
 		}
 
 		ClassNode clazz = readClass(originalInput);
+		ClassNode clazz2 = readClass(originalInput);
 		clazz.version = V1_6;
 
 		for (Object _method : clazz.methods) {
@@ -248,26 +244,32 @@ public class AsmProcessor {
 				LocalVariableNode[] localVariables = (LocalVariableNode[])method.localVariables.toArray(new LocalVariableNode[0]);
 				System.out.println("localVariables:" + localVariables);
 
-				ClassNode runClass = createTransformedClassForMethod(clazz, method);
+				if (true) {
+					//clazz2
+					MethodNode method2 = ClassNodeUtils.getMethod(clazz2, method.name, method.desc);
 
-				//System.out.println(outputFile.getParent());
-				writeClass(new File(outputFile.getParent() + "/" + runClass.name + ".class"), runClass);
-				method.instructions = new InsnList();
-
-				method.instructions.add(new TypeInsnNode(NEW, runClass.name));
-				method.instructions.add(new InsnNode(DUP));
-				MethodNode mnInit = (MethodNode)runClass.methods.get(0);
-				MethodNode mnRun = (MethodNode)runClass.methods.get(1);
-				for (int n = 0; n < argumentCount; n++) method.instructions.add(new IntInsnNode(ALOAD, n));
-				method.instructions.add(new MethodInsnNode(INVOKESPECIAL, runClass.name, mnInit.name, mnInit.desc, false));
-				//method.instructions.add(new InsnNode(DUP));
-				method.instructions.add(new IntInsnNode(ASTORE, 1));
-				method.instructions.add(new IntInsnNode(ALOAD, 1));
-				method.instructions.add(new InsnNode(ACONST_NULL));
-				method.instructions.add(new MethodInsnNode(INVOKEVIRTUAL, runClass.name, mnRun.name, mnRun.desc, false));
-				method.instructions.add(new IntInsnNode(ALOAD, 1));
-				method.instructions.add(new FieldInsnNode(GETFIELD, runClass.name, "promise", Type.getType(Promise.class).getDescriptor()));
-				method.instructions.add(new InsnNode(ARETURN));
+					ClassNode runClass = createTransformedClassForMethod(clazz2, method2);
+					//System.out.println(outputFile.getParent());
+					writeClass(new File(outputFile.getParent() + "/" + runClass.name + ".class"), runClass);
+					method.instructions = new InsnList();
+					method.instructions.add(new TypeInsnNode(NEW, runClass.name));
+					method.instructions.add(new InsnNode(DUP));
+					MethodNode mnInit = (MethodNode)runClass.methods.get(0);
+					MethodNode mnRun = (MethodNode)runClass.methods.get(1);
+					for (int n = 0; n < argumentCount; n++) method.instructions.add(new IntInsnNode(ALOAD, n));
+					method.instructions.add(new MethodInsnNode(INVOKESPECIAL, runClass.name, mnInit.name, mnInit.desc, false));
+					//method.instructions.add(new InsnNode(DUP));
+					method.instructions.add(new IntInsnNode(ASTORE, 1));
+					method.instructions.add(new IntInsnNode(ALOAD, 1));
+					method.instructions.add(new InsnNode(ACONST_NULL));
+					method.instructions.add(new MethodInsnNode(INVOKEVIRTUAL, runClass.name, mnRun.name, mnRun.desc, false));
+					method.instructions.add(new IntInsnNode(ALOAD, 1));
+					method.instructions.add(new FieldInsnNode(GETFIELD, runClass.name, "promise", Type.getType(Promise.class).getDescriptor()));
+					method.instructions.add(new InsnNode(ARETURN));
+				} else {
+					method.instructions.add(new InsnNode(ACONST_NULL));
+					method.instructions.add(new InsnNode(ARETURN));
+				}
 			}
 		}
 		//FileUtils.copyFile();
@@ -338,71 +340,3 @@ public class AsmProcessor {
 	}
 }
 
-class Linq<T> implements Iterable<T> {
-	private Iterable<T> list;
-
-	Linq(Iterable<T> list) {
-		this.list = list;
-	}
-
-	Linq(T[] items) {
-		this.list = Arrays.asList(items);
-	}
-
-	public T first(Predicate<T> predicate) {
-		for (T item : list) {
-			if (predicate.test(item)) return item;
-		}
-		return null;
-	}
-
-	public Linq<T> skip(int count) {
-		List<T> out = new LinkedList<>();
-		for (T item : list) {
-			if (count <= 0) {
-				out.add(item);
-			} else {
-				count--;
-			}
-		}
-		return new Linq(out);
-	}
-
-	static public int[] range(int count) {
-		return range(0, count);
-	}
-
-	static public int[] range(int start, int count) {
-		int[] result = new int[count];
-		for (int n = 0; n < count; n++) result[n] = n + start;
-		return result;
-	}
-
-	public <T> List<T> toList(Class<T> clazz) {
-		List<T> list = new ArrayList<T>();
-		for (Object item : this) list.add((T)item);
-		return list;
-	}
-
-	public <T> T[] toArray(Class<T> clazz) {
-		List<T> list = toList(clazz);
-		Object array = Array.newInstance(clazz, list.size());
-		for (int n = 0; n < list.size(); n++) Array.set(array, n, list.get(n));
-		return (T[])array;
-	}
-
-	@Override
-	public Iterator<T> iterator() {
-		return list.iterator();
-	}
-
-	@Override
-	public void forEach(Consumer<? super T> action) {
-		list.forEach(action);
-	}
-
-	@Override
-	public Spliterator<T> spliterator() {
-		return list.spliterator();
-	}
-}
