@@ -4,13 +4,9 @@ public class MockedEventLoop extends NormalEventLoop {
 	long currentTime = 0;
 
 	@Override
-	protected long getNow() {
-		return currentTime;
-	}
-
-	@Override
-	protected void sleep(long timeToWait) throws Exception {
-		System.out.print("[" + currentTime + ":" + timeToWait + "]");
-		currentTime += timeToWait;
+	public void setTimeout(Runnable r, int time) {
+		System.out.print("[" + currentTime + ":" + time + "]");
+		enqueue(r);
+		currentTime += time;
 	}
 }

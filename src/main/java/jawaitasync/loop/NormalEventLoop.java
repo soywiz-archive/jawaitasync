@@ -1,51 +1,48 @@
 package jawaitasync.loop;
 
-import jawaitasync.ResultRunnable;
-
-import java.util.Comparator;
-import java.util.Date;
-import java.util.TreeSet;
+import java.util.*;
 
 public class NormalEventLoop implements EventLoop {
-	private TreeSet<Timer> timers = new TreeSet<Timer>(new HolderTimeComparator());
+	private Thread loopThread;
+	private Queue<Runnable> callbacks = new LinkedList<>();
+	Timer timer = new Timer();
+	volatile long refcount = 0;
 
-	protected long getNow() {
-		return new Date().getTime();
+	synchronized public void refCountInc() { refcount++; }
+	synchronized public void refCountDec() { refcount--; }
+
+	public void setTimeout(final Runnable r, int time) {
+		refCountInc();
+		timer.schedule(new TimerTask() {
+			@Override
+			public void run() {
+				refCountDec();
+				enqueue(r);
+			}
+		}, time);
 	}
 
-	public void setTimeout(ResultRunnable r, int time) {
-		timers.add(new Timer(getNow() + time, r));
+	@Override
+	synchronized public void enqueue(Runnable r) {
+		callbacks.add(r);
+		notifyAll();
+	}
+
+	synchronized private Runnable readOne() throws InterruptedException {
+		while (callbacks.size() == 0) wait();
+		return callbacks.poll();
+	}
+
+	synchronized private boolean isEmpty() {
+		return callbacks.isEmpty();
 	}
 
 	public void loop() throws Exception {
-		while (!timers.isEmpty()) {
-			Timer timer = timers.pollFirst();
-			long timeToWait = timer.time - getNow();
-			if (timeToWait > 0) sleep(timeToWait);
-			timer.run.run(null);
+		loopThread = Thread.currentThread();
+		while (!isEmpty() || (refcount > 0)) {
+			Runnable runnable = readOne();
+			if (runnable != null) runnable.run();
 		}
-	}
-
-	protected void sleep(long timeToWait) throws Exception {
-		Thread.sleep(timeToWait);
-	}
-}
-
-class HolderTimeComparator implements Comparator<Timer> {
-	@Override
-	public int compare(Timer a, Timer b) {
-		if (a.time < b.time) return -1;
-		if (a.time > b.time) return +1;
-		return 0;
-	}
-}
-
-class Timer {
-	public long time;
-	public ResultRunnable run;
-
-	Timer(long time, ResultRunnable run) {
-		this.time = time;
-		this.run = run;
+		timer.cancel();
 	}
 }

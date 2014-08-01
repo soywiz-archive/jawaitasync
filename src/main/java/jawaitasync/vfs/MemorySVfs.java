@@ -7,6 +7,18 @@ import java.util.Map;
 public class MemorySVfs extends SVfs {
 	Map<String, Entry> maps = new HashMap<>();
 
+	class Entry {
+		public String name;
+		public byte[] content;
+		public long lastModified;
+
+		Entry(String name, byte[] content, long lastModified) {
+			this.name = name;
+			this.content = content;
+			this.lastModified = lastModified;
+		}
+	}
+
 	@Override
 	protected void _put(String name, byte[] data) {
 		maps.put(name, new Entry(name, data, new Date().getTime()));
@@ -32,17 +44,5 @@ public class MemorySVfs extends SVfs {
 	protected void _setLastModified(String name, long value) {
 		if (!maps.containsKey(name)) return;
 		maps.get(name).lastModified = value;
-	}
-}
-
-class Entry {
-	public String name;
-	public byte[] content;
-	public long lastModified;
-
-	Entry(String name, byte[] content, long lastModified) {
-		this.name = name;
-		this.content = content;
-		this.lastModified = lastModified;
 	}
 }
