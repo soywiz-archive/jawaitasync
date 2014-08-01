@@ -2,17 +2,12 @@ package jawaitasync.processor;
 
 import jawaitasync.Promise;
 import jawaitasync.ResultRunnable;
-import jawaitasync.vfs.FileSVfs;
-import jawaitasync.vfs.SVfs;
 import jawaitasync.vfs.SVfsFile;
-import org.apache.commons.io.FileUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,6 +49,18 @@ public class AsmProcessor {
 		return argumentCount;
 	}
 
+	private LocalVariableNode[] getLocalsByIndex(MethodNode method) {
+		int maxIndex = 0;
+		for (LocalVariableNode lv : (LocalVariableNode[])new Linq(method.localVariables).toArray(LocalVariableNode.class)) {
+			maxIndex = Math.max(maxIndex, lv.index);
+		}
+		LocalVariableNode[] nodes = new LocalVariableNode[maxIndex + 1];
+		for (LocalVariableNode lv : (LocalVariableNode[])new Linq(method.localVariables).toArray(LocalVariableNode.class)) {
+			nodes[lv.index] = lv;
+		}
+		return nodes;
+	}
+
 	private ClassNode createTransformedClassForMethod(ClassNode classNode, MethodNode method) throws Exception {
 		ClassNode cn = new ClassNode();
 		cn.version = V1_8;
@@ -70,15 +77,21 @@ public class AsmProcessor {
 
 		int argumentCount = getMethodArgumentCountIncludingThis(method);
 
-		for (LocalVariableNode lv : new Linq<LocalVariableNode>(method.localVariables)) {
+		LocalVariableNode[] localsByIndex = getLocalsByIndex(method);
+
+		for (LocalVariableNode lv : localsByIndex) {
 			cn.fields.add(new FieldNode(ACC_PUBLIC, "local_" + lv.name, lv.desc, null, null));
+			//System.out.println("local[]:" + lv.name + ", " + lv.desc + ", " + lv.index);
 		}
 
 		Type[] args = new Type[argumentCount];
 
+		//System.out.println("argumentCount:" + argumentCount);
+
 		for (int n = 0; n < argumentCount; n++) {
-			LocalVariableNode lv2 = (LocalVariableNode) method.localVariables.get(n);
+			LocalVariableNode lv2 = localsByIndex[n];
 			args[n] = Type.getType(lv2.desc);
+			//System.out.println("args[" + n + "]:" + lv2.name + ", " + lv2.desc);
 		}
 
 		// this, arguments from the function
@@ -99,7 +112,7 @@ public class AsmProcessor {
 		mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
 
 		for (int n = 0; n < argumentCount; n++) {
-			LocalVariableNode lv2 = (LocalVariableNode) method.localVariables.get(n);
+			LocalVariableNode lv2 = localsByIndex[n];
 			mnc.instructions.add(new IntInsnNode(ALOAD, 0));
 			mnc.instructions.add(new IntInsnNode(ALOAD, n + 1));
 			mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "local_" + lv2.name, lv2.desc));
@@ -137,7 +150,7 @@ public class AsmProcessor {
 		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
 			if (node instanceof VarInsnNode) {
 				VarInsnNode varNode = (VarInsnNode) node;
-				LocalVariableNode localVar = (LocalVariableNode) method.localVariables.get(varNode.var);
+				LocalVariableNode localVar = (LocalVariableNode) localsByIndex[varNode.var];
 				InsnList list = new InsnList();
 				list.add(new VarInsnNode(ALOAD, 0));
 				//System.out.println(localVar.name);
@@ -232,8 +245,8 @@ public class AsmProcessor {
 			originalClassFile.write(classFile.read());
 		}
 
-		ClassNode clazz = readClass(originalClassFile);
-		ClassNode clazz2 = readClass(originalClassFile);
+		ClassNode clazz = getClassFromBytes(originalClassFile.read());
+		ClassNode clazz2 = getClassFromBytes(originalClassFile.read());
 		clazz.version = V1_8;
 
 		int awaitMethodCount = 0;
@@ -244,36 +257,34 @@ public class AsmProcessor {
 			if (hasAwait(method)) {
 				awaitMethodCount++;
 				int argumentCount = getMethodArgumentCountIncludingThis(method);
-				System.out.println("argumentCount:" + argumentCount);
+				//System.out.println("argumentCount:" + argumentCount);
 
-				System.out.println("Method with await! " + method.name);
+				//System.out.println("Method with await! " + method.name);
 
-				LocalVariableNode[] localVariables = (LocalVariableNode[]) method.localVariables.toArray(new LocalVariableNode[0]);
-				System.out.println("localVariables:" + localVariables);
 				method.instructions = new InsnList();
 
 				if (true) {
 					//clazz2
 					MethodNode method2 = ClassNodeUtils.getMethod(clazz2, method.name, method.desc);
 
+					//System.out.println(method2.name);
 					ClassNode runClass = createTransformedClassForMethod(clazz2, method2);
 					//System.out.println(outputFile.getParent());
 
-					System.out.println(runClass.name + ".class");
-					writeClass(classFile.getVfs().access(runClass.name + ".class"), runClass);
+					//System.out.println(runClass.name + ".class");
+					classFile.getVfs().access(runClass.name + ".class").write(getClassBytes(runClass));
 					method.instructions.add(new TypeInsnNode(NEW, runClass.name));
 					method.instructions.add(new InsnNode(DUP));
 					MethodNode mnInit = (MethodNode) runClass.methods.get(0);
 					MethodNode mnRun = (MethodNode) runClass.methods.get(1);
-					for (int n = 0; n < argumentCount; n++) method.instructions.add(new IntInsnNode(ALOAD, n));
+					for (int n = 0; n < argumentCount; n++) {
+						method.instructions.add(new IntInsnNode(ALOAD, n));
+					}
 					method.instructions.add(new MethodInsnNode(INVOKESPECIAL, runClass.name, mnInit.name, mnInit.desc, false));
-					//method.instructions.add(new InsnNode(DUP));
-					//method.instructions.add(new IntInsnNode(ASTORE, 1));
-					//method.instructions.add(new IntInsnNode(ALOAD, 1));
+
 					method.instructions.add(new InsnNode(DUP));
 					method.instructions.add(new InsnNode(ACONST_NULL));
 					method.instructions.add(new MethodInsnNode(INVOKEVIRTUAL, runClass.name, mnRun.name, mnRun.desc, false));
-					//method.instructions.add(new IntInsnNode(ALOAD, 1));
 					method.instructions.add(new FieldInsnNode(GETFIELD, runClass.name, "promise", Type.getType(Promise.class).getDescriptor()));
 					method.instructions.add(new InsnNode(ARETURN));
 				} else {
@@ -284,7 +295,7 @@ public class AsmProcessor {
 		}
 
 		if (awaitMethodCount > 0) {
-			writeClass(classFile, clazz);
+			classFile.write(getClassBytes(clazz));
 			originalClassFile.setLastModified(classFile.lastModified());
 			return true;
 		} else {
@@ -292,18 +303,18 @@ public class AsmProcessor {
 		}
 	}
 
-	private static ClassNode readClass(SVfsFile file) throws Exception {
-		ClassReader cr = new ClassReader(file.read());
+	private static ClassNode getClassFromBytes(byte[] data) throws Exception {
+		ClassReader cr = new ClassReader(data);
 		ClassNode cn = new ClassNode();
 		cr.accept(cn, 0);
 		//cn.accept(cr, 0);
 		return cn;
 	}
 
-	private static void writeClass(SVfsFile file, ClassNode cn) throws Exception {
+	private static byte[] getClassBytes(ClassNode cn) throws Exception {
 		ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
 		cn.accept(cw);
-		file.write(cw.toByteArray());
+		return cw.toByteArray();
 	}
 }
 

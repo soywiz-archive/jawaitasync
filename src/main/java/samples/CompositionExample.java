@@ -6,11 +6,12 @@ import jawaitasync.loop.EventLoopHolder;
 
 import static jawaitasync.Promise.await;
 import static jawaitasync.Promise.complete;
+import static jawaitasync.PromiseTools.sleep;
 
-public class AwaitAsyncCompositionExample {
+public class CompositionExample {
 	public Promise testAsync() {
 		System.out.print("{1}");
-		await(PromiseTools.sleep(1000));
+		await(sleep(1000));
 		System.out.print("{2}");
 		await(test2Async());
 		return complete(null);
@@ -18,7 +19,7 @@ public class AwaitAsyncCompositionExample {
 
 	public Promise test2Async() {
 		System.out.print("{3}");
-		await(PromiseTools.sleep(1000));
+		await(sleep(1000));
 		return complete(null);
 	}
 }

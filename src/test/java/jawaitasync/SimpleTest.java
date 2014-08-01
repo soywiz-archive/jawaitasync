@@ -1,6 +1,6 @@
 package jawaitasync;
 
-import samples.AwaitAsyncCompositionExample;
+import samples.CompositionExample;
 import samples.LoopExample;
 import samples.PromiseExample;
 
@@ -12,13 +12,11 @@ public class SimpleTest {
 
 	@org.junit.Test
 	public void testComposition() throws Exception {
-		TestAsyncClass.assertCallAsyncMethod("{1}[0:1000]{2}{3}[1000:1000]", AwaitAsyncCompositionExample.class.getTypeName(), "testAsync");
+		TestAsyncClass.assertCallAsyncMethod("{1}[0:1000]{2}{3}[1000:1000]", CompositionExample.class.getTypeName(), "testAsync");
 	}
 
-	/*
 	@org.junit.Test
 	public void testLoop() throws Exception {
-		TestAsyncClass.assertCallAsyncMethod("", LoopExample.class.getTypeName(), "testAsync");
+		TestAsyncClass.assertCallAsyncMethod("a[0:1000]ba[1000:1000]b", LoopExample.class.getTypeName(), "testAsync");
 	}
-	*/
 }
