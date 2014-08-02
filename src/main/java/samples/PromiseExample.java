@@ -11,16 +11,16 @@ public class PromiseExample {
 		//for (int n = 0; n < 2; n++) {
 		int n = 0;
 		System.out.print("hello!" + n++);
-		await(PromiseTools.sleep(1000));
+		await(PromiseTools.sleepAsync(1000));
 		System.out.print("world!" + n++);
 		//}
 		return Promise.complete(null);
 		/*
 		int n = 0;
         System.out.println("hello!" + n++);
-        await(PromiseTools.sleep(1000));
+        await(PromiseTools.sleepAsync(1000));
         System.out.println("world!" + n++);
-        await(PromiseTools.sleep(1000));
+        await(PromiseTools.sleepAsync(1000));
         System.out.println("end!" + n++);
         return Promise.complete(null);
         */

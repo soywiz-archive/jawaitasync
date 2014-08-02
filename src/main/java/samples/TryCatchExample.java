@@ -10,7 +10,7 @@ public class TryCatchExample {
 	public Promise testAsync() {
 		try {
 			System.out.println("Started");
-			await(PromiseTools.sleepAndThrow(1000, new Exception("AfterASecondException")));
+			await(PromiseTools.sleepAndThrowAsync(1000, new Exception("AfterASecondException")));
 			System.out.println("NotRun");
 		} catch (Exception exception) {
 			System.out.println("Catch:" + exception.getMessage());

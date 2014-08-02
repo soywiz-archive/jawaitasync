@@ -10,7 +10,7 @@ public class LoopExample {
 	public Promise testAsync() {
 		for (int n = 0; n < 2; n++) {
 			System.out.print("a");
-			await(PromiseTools.sleep(1000));
+			await(PromiseTools.sleepAsync(1000));
 			System.out.print("b");
 		}
 		return complete(null);

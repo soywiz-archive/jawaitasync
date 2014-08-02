@@ -18,7 +18,7 @@ public class PromiseExampleConverted_testAsync_Runnable implements ResultRunnabl
 			case 0:
 			default:
 				System.out.print("hello!");
-				PromiseTools.sleep(1000).then(this);
+				PromiseTools.sleepAsync(1000).then(this);
 				this.state = 1;
 				return;
 			case 1:

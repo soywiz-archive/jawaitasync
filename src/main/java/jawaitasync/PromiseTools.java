@@ -8,7 +8,7 @@ import jawaitasync.loop.EventLoopHolder;
 import java.io.IOException;
 
 public class PromiseTools {
-	static public Promise<String> downloadUrl(String url) throws IOException {
+	static public Promise<String> downloadUrlAsync(String url) throws IOException {
 		Promise<String> promise = new Promise();
 
 		EventLoopHolder.instance.refCountInc();
@@ -33,7 +33,7 @@ public class PromiseTools {
 		return promise;
 	}
 
-	static public Promise sleep(int milliseconds) {
+	static public Promise sleepAsync(int milliseconds) {
 		Promise<?> promise = new Promise();
 		EventLoopHolder.instance.setTimeout(() -> {
 			promise.resolve(null);
@@ -41,7 +41,7 @@ public class PromiseTools {
 		return promise;
 	}
 
-	static public Promise sleepAndThrow(int milliseconds, Exception exception) {
+	static public Promise sleepAndThrowAsync(int milliseconds, Exception exception) {
 		Promise<?> promise = new Promise();
 		EventLoopHolder.instance.setTimeout(() -> {
 			promise.reject(exception);
