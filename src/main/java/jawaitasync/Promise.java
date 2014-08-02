@@ -1,14 +1,17 @@
 package jawaitasync;
 
+import jawaitasync.loop.EventLoopHolder;
+import sun.net.www.content.text.Generic;
+
 import java.util.LinkedList;
 import java.util.Queue;
 
 public class Promise<T> {
 	Queue<ResultRunnable> callbacks = new LinkedList<>();
 	boolean resolved = false;
-	T resolvedValue;
+	Object resolvedValue;
 
-	public void then(ResultRunnable callback) {
+	public void then(ResultRunnable<T> callback) {
 		callbacks.add(callback);
 		checkResolved();
 	}
@@ -24,11 +27,19 @@ public class Promise<T> {
 		checkResolved();
 	}
 
+	public void reject(Exception exception) {
+		resolved = true;
+		resolvedValue = exception;
+		checkResolved();
+	}
+
 	private void checkResolved() {
 		if (!resolved) return;
 		while (callbacks.peek() != null) {
-			ResultRunnable callback = callbacks.poll();
-			callback.run(resolvedValue);
+			final ResultRunnable callback = callbacks.poll();
+			EventLoopHolder.instance.enqueue(() -> {
+				callback.run(resolvedValue);
+			});
 		}
 	}
 

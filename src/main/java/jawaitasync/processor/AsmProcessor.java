@@ -312,7 +312,7 @@ public class AsmProcessor {
 	}
 
 	private static byte[] getClassBytes(ClassNode cn) throws Exception {
-		ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
+		ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
 		cn.accept(cw);
 		return cw.toByteArray();
 	}

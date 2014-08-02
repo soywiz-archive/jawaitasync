@@ -9,7 +9,7 @@ import java.io.IOException;
 
 public class PromiseTools {
 	static public Promise<String> downloadUrl(String url) throws IOException {
-		Promise promise = new Promise();
+		Promise<String> promise = new Promise();
 
 		EventLoopHolder.instance.refCountInc();
 
@@ -26,7 +26,7 @@ public class PromiseTools {
 			@Override
 			public void onThrowable(Throwable t) {
 				EventLoopHolder.instance.refCountDec();
-				promise.resolve(t);
+				promise.reject((Exception)t);
 			}
 		});
 
@@ -34,9 +34,17 @@ public class PromiseTools {
 	}
 
 	static public Promise sleep(int milliseconds) {
-		Promise promise = new Promise();
+		Promise<?> promise = new Promise();
 		EventLoopHolder.instance.setTimeout(() -> {
 			promise.resolve(null);
+		}, milliseconds);
+		return promise;
+	}
+
+	static public Promise sleepAndThrow(int milliseconds, Exception exception) {
+		Promise<?> promise = new Promise();
+		EventLoopHolder.instance.setTimeout(() -> {
+			promise.reject(exception);
 		}, milliseconds);
 		return promise;
 	}

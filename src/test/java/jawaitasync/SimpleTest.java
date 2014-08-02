@@ -3,6 +3,7 @@ package jawaitasync;
 import samples.CompositionExample;
 import samples.LoopExample;
 import samples.PromiseExample;
+import samples.TryCatchExample;
 
 public class SimpleTest {
 	@org.junit.Test
@@ -19,4 +20,9 @@ public class SimpleTest {
 	public void testLoop() throws Exception {
 		TestAsyncClass.assertCallAsyncMethod("a[0:1000]ba[1000:1000]b", LoopExample.class.getTypeName(), "testAsync");
 	}
+
+	//@org.junit.Test
+	//public void testTryCatch() throws Exception {
+	//	TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample.class.getTypeName(), "testAsync");
+	//}
 }
