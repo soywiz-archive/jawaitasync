@@ -263,32 +263,31 @@ public class AsmProcessor {
 
 				method.instructions = new InsnList();
 
-				if (true) {
-					//clazz2
-					MethodNode method2 = ClassNodeUtils.getMethod(clazz2, method.name, method.desc);
+				MethodNode method2 = ClassNodeUtils.getMethod(clazz2, method.name, method.desc);
 
-					//System.out.println(method2.name);
-					ClassNode runClass = createTransformedClassForMethod(clazz2, method2);
-					//System.out.println(outputFile.getParent());
+				//System.out.println(method2.name);
+				ClassNode runClass = createTransformedClassForMethod(clazz2, method2);
+				//System.out.println(outputFile.getParent());
 
-					//System.out.println(runClass.name + ".class");
-					classFile.getVfs().access(runClass.name + ".class").write(getClassBytes(runClass));
-					method.instructions.add(new TypeInsnNode(NEW, runClass.name));
-					method.instructions.add(new InsnNode(DUP));
-					MethodNode mnInit = (MethodNode) runClass.methods.get(0);
-					MethodNode mnRun = (MethodNode) runClass.methods.get(1);
-					for (int n = 0; n < argumentCount; n++) {
-						method.instructions.add(new IntInsnNode(ALOAD, n));
-					}
-					method.instructions.add(new MethodInsnNode(INVOKESPECIAL, runClass.name, mnInit.name, mnInit.desc, false));
+				//System.out.println(runClass.name + ".class");
+				classFile.getVfs().access(runClass.name + ".class").write(getClassBytes(runClass));
+				method.instructions.add(new TypeInsnNode(NEW, runClass.name));
+				method.instructions.add(new InsnNode(DUP));
+				MethodNode mnInit = (MethodNode) runClass.methods.get(0);
+				MethodNode mnRun = (MethodNode) runClass.methods.get(1);
+				for (int n = 0; n < argumentCount; n++) {
+					method.instructions.add(new IntInsnNode(ALOAD, n));
+				}
+				method.instructions.add(new MethodInsnNode(INVOKESPECIAL, runClass.name, mnInit.name, mnInit.desc, false));
 
-					method.instructions.add(new InsnNode(DUP));
-					method.instructions.add(new InsnNode(ACONST_NULL));
-					method.instructions.add(new MethodInsnNode(INVOKEVIRTUAL, runClass.name, mnRun.name, mnRun.desc, false));
-					method.instructions.add(new FieldInsnNode(GETFIELD, runClass.name, "promise", Type.getType(Promise.class).getDescriptor()));
-					method.instructions.add(new InsnNode(ARETURN));
+				method.instructions.add(new InsnNode(DUP));
+				method.instructions.add(new InsnNode(ACONST_NULL));
+				method.instructions.add(new MethodInsnNode(INVOKEVIRTUAL, runClass.name, mnRun.name, mnRun.desc, false));
+
+				if (Type.getType(method.desc).getReturnType() == Type.VOID_TYPE) {
+					method.instructions.add(new InsnNode(RETURN));
 				} else {
-					method.instructions.add(new InsnNode(ACONST_NULL));
+					method.instructions.add(new FieldInsnNode(GETFIELD, runClass.name, "promise", Type.getType(Promise.class).getDescriptor()));
 					method.instructions.add(new InsnNode(ARETURN));
 				}
 			}

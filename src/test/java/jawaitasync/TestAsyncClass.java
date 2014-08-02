@@ -6,7 +6,7 @@ import jawaitasync.processor.AsmProcessorLoader;
 import org.junit.Assert;
 
 public class TestAsyncClass {
-	static public void assertCallAsyncMethod(String expectedOutput, String className, String methodName) throws Exception {
+	static public void assertCallAsyncMethod(String expectedOutput, String className, String methodName, boolean asStatic) throws Exception {
 		EventLoopHolder.instance = new MockedEventLoop();
 
 		ClassLoader loader = new AsmProcessorLoader(ClassLoader.getSystemClassLoader());
@@ -15,7 +15,7 @@ public class TestAsyncClass {
 		Assert.assertEquals(expectedOutput, OutUtils.captureOutput(() -> {
 			ClassLoader loader2 = loader;
 			try {
-				Promise promise = (Promise) clazz.getMethod(methodName).invoke(clazz.newInstance());
+				Promise promise = (Promise) clazz.getMethod(methodName).invoke(asStatic ? null : clazz.newInstance());
 				EventLoopHolder.instance.loop();
 			} catch (Exception e) {
 				e.printStackTrace();

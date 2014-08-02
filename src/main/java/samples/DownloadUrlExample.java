@@ -11,12 +11,12 @@ import static jawaitasync.PromiseTools.downloadUrlAsync;
 import static jawaitasync.PromiseTools.sleepAsync;
 
 public class DownloadUrlExample {
-	public Promise downloadFilesAsync() throws IOException {
+	public Promise<String> downloadFilesAsync() throws IOException {
 		String file = await(downloadUrlAsync("http://google.es/"));
 		System.out.println(file);
 		await(sleepAsync(1000));
 		String file2 = await(downloadUrlAsync("http://www.google.es/"));
 		System.out.println(file2);
-		return complete(null);
+		return complete("completed!");
 	}
 }
