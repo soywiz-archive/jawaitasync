@@ -5,10 +5,10 @@ import jawaitasync.vfs.MemorySVfs;
 import jawaitasync.vfs.SVfs;
 import jawaitasync.vfs.SVfsFile;
 
-public class AsmProcessorLoader extends ClassLoader {
+public class AwaitProcessorClassLoader extends ClassLoader {
 	private SVfs vfs = new MemorySVfs();
 
-	public AsmProcessorLoader(ClassLoader parent) {
+	public AwaitProcessorClassLoader(ClassLoader parent) {
 		super(parent);
 	}
 
@@ -22,7 +22,7 @@ public class AsmProcessorLoader extends ClassLoader {
 				byte[] data = InputStreamUtils.load(newClass.getResourceAsStream(classFileName));
 				if (data == null) return newClass;
 				classFile.write(data);
-				if (!(new AsmProcessor().processFile(classFile))) return newClass;
+				if (!(new AwaitProcessor().processFile(classFile))) return newClass;
 			}
 			byte[] classData = classFile.read();
 			return this.defineClass(name, classData, 0, classData.length);

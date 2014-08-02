@@ -16,7 +16,7 @@ import static org.objectweb.asm.Opcodes.*;
 /**
  * http://asm.ow2.org/asm40/javadoc/user/org/objectweb/asm/MethodVisitor.html
  */
-public class AsmProcessor {
+public class AwaitProcessor {
 	static private boolean isAwaitMethodCall(AbstractInsnNode node) {
 		if (!(node instanceof MethodInsnNode)) return false;
 		MethodInsnNode methodNode = (MethodInsnNode) node;
@@ -66,6 +66,7 @@ public class AsmProcessor {
 		cn.version = V1_8;
 		cn.access = ACC_PUBLIC;
 		cn.name = classNode.name + "$" + method.name + "$Runnable";
+		cn.sourceFile = classNode.sourceFile;
 		//cn.name = classNode.name + "__" + method.name + "__Runnable";
 		cn.superName = Type.getType(Object.class).getInternalName();
 		//System.out.println("cn.superName: " + cn.superName);
