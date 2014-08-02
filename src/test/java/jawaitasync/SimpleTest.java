@@ -39,4 +39,9 @@ public class SimpleTest {
 		TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample.class.getTypeName(), "testAsync", false);
 	}
 	*/
+
+	@org.junit.Test
+	public void testThrowNoCatch() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("[0:1000][Exception:ThrowingException]", ThrowNoCatchExample.class.getTypeName(), "testAsync", false);
+	}
 }

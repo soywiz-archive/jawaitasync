@@ -40,9 +40,17 @@ public class NormalEventLoop implements EventLoop {
 	public void loop() throws Exception {
 		loopThread = Thread.currentThread();
 		while (!isEmpty() || (refcount > 0)) {
-			Runnable runnable = readOne();
-			if (runnable != null) runnable.run();
+			try {
+				Runnable runnable = readOne();
+				if (runnable != null) runnable.run();
+			} catch (Throwable exception) {
+				handleException(exception);
+			}
 		}
 		timer.cancel();
+	}
+
+	protected void handleException(Throwable exception) {
+		exception.printStackTrace();
 	}
 }

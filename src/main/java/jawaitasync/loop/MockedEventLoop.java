@@ -9,4 +9,9 @@ public class MockedEventLoop extends NormalEventLoop {
 		enqueue(r);
 		currentTime += time;
 	}
+
+	@Override
+	protected void handleException(Throwable exception) {
+		System.out.print("[Exception:" + exception.getMessage() + "]");
+	}
 }

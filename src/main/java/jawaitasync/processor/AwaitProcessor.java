@@ -61,29 +61,11 @@ public class AwaitProcessor {
 		return nodes;
 	}
 
-	private ClassNode createTransformedClassForMethod(ClassNode classNode, MethodNode method) throws Exception {
-		ClassNode cn = new ClassNode();
-		cn.version = V1_8;
-		cn.access = ACC_PUBLIC;
-		cn.name = classNode.name + "$" + method.name + "$Runnable";
-		cn.sourceFile = classNode.sourceFile;
-		//cn.name = classNode.name + "__" + method.name + "__Runnable";
-		cn.superName = Type.getType(Object.class).getInternalName();
-		//System.out.println("cn.superName: " + cn.superName);
+	static final Type promiseType = Type.getType(Promise.class);
 
-		cn.interfaces.add(Type.getType(ResultRunnable.class).getInternalName());
-
-		cn.fields.add(new FieldNode(ACC_PUBLIC, "state", "I", null, null));
-		cn.fields.add(new FieldNode(ACC_PUBLIC, "promise", Type.getType(Promise.class).getDescriptor(), null, null));
-
+	private MethodNode createTransformedConstructor(ClassNode cn, MethodNode method) throws Exception {
 		int argumentCount = getMethodArgumentCountIncludingThis(method);
-
 		LocalVariableNode[] localsByIndex = getLocalsByIndex(method);
-
-		for (LocalVariableNode lv : localsByIndex) {
-			cn.fields.add(new FieldNode(ACC_PUBLIC, "local_" + lv.name, lv.desc, null, null));
-			//System.out.println("local[]:" + lv.name + ", " + lv.desc + ", " + lv.index);
-		}
 
 		Type[] args = new Type[argumentCount];
 
@@ -100,7 +82,7 @@ public class AwaitProcessor {
 		mnc.instructions.add(new IntInsnNode(ALOAD, 0));
 		mnc.instructions.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false));
 
-		Type promiseType = Type.getType(Promise.class);
+
 
 		mnc.instructions.add(new IntInsnNode(ALOAD, 0));
 		mnc.instructions.add(new TypeInsnNode(NEW, promiseType.getInternalName()));
@@ -120,8 +102,33 @@ public class AwaitProcessor {
 		}
 
 		mnc.instructions.add(new InsnNode(RETURN));
+		return mnc;
+	}
 
-		cn.methods.add(mnc);
+	private ClassNode createTransformedClassForMethod(ClassNode classNode, MethodNode method) throws Exception {
+		ClassNode cn = new ClassNode();
+		cn.version = V1_8;
+		cn.access = ACC_PUBLIC;
+		cn.name = classNode.name + "$" + method.name + "$Runnable";
+		cn.sourceFile = classNode.sourceFile;
+		//cn.name = classNode.name + "__" + method.name + "__Runnable";
+		cn.superName = Type.getType(Object.class).getInternalName();
+		//System.out.println("cn.superName: " + cn.superName);
+
+		cn.interfaces.add(Type.getType(ResultRunnable.class).getInternalName());
+
+		cn.fields.add(new FieldNode(ACC_PUBLIC, "state", "I", null, null));
+		cn.fields.add(new FieldNode(ACC_PUBLIC, "promise", Type.getType(Promise.class).getDescriptor(), null, null));
+
+		int argumentCount = getMethodArgumentCountIncludingThis(method);
+		LocalVariableNode[] localsByIndex = getLocalsByIndex(method);
+
+		for (LocalVariableNode lv : localsByIndex) {
+			cn.fields.add(new FieldNode(ACC_PUBLIC, "local_" + lv.name, lv.desc, null, null));
+			//System.out.println("local[]:" + lv.name + ", " + lv.desc + ", " + lv.index);
+		}
+
+		cn.methods.add(createTransformedConstructor(cn, method));
 
 		MethodNode mn = new MethodNode(ACC_PUBLIC, "run", Type.getMethodType(Type.VOID_TYPE, Type.getType(Object.class)).getDescriptor(), null, null);
 
@@ -192,7 +199,19 @@ public class AwaitProcessor {
 				LabelNode awaitLabel = new LabelNode();
 				stateLabelNodes.add(awaitLabel);
 				list.add(awaitLabel);
-				//list.add(new InsnNode(ACONST_NULL)); // Put the result of the promise here.
+
+				LabelNode skip_throw_label = new LabelNode();
+
+				list.add(new VarInsnNode(ALOAD, 1)); // Put the result of the promise here. (first parameter received)
+				list.add(new TypeInsnNode(INSTANCEOF, Type.getType(Throwable.class).getInternalName()));
+				list.add(new JumpInsnNode(IFEQ, skip_throw_label));
+				{
+					list.add(new VarInsnNode(ALOAD, 1)); // Put the result of the promise here. (first parameter received)
+					list.add(new TypeInsnNode(CHECKCAST, Type.getType(Throwable.class).getInternalName()));
+					list.add(new InsnNode(ATHROW));
+				}
+				list.add(skip_throw_label);
+
 				list.add(new VarInsnNode(ALOAD, 1));
 
 				mn.instructions.insertBefore(node, list);
