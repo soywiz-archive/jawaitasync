@@ -6,14 +6,19 @@ jawaitasync
 Implements C# await/async keywords and behaviour with any JVM language. Completely asynchronous.
 
 ```java
+import static jawaitasync.Promise.await;
+import static jawaitasync.Promise.complete;
+import static jawaitasync.PromiseTools.downloadUrlAsync;
+import static jawaitasync.PromiseTools.sleepAsync;
+
 public class DownloadUrlExample {
-	public Promise<String> downloadFilesAsync() throws IOException {
-		String file = await(PromiseTools.downloadUrlAsync("http://google.es/"));
+	public Promise downloadFilesAsync() throws IOException {
+		String file = await(downloadUrlAsync("http://google.es/"));
 		System.out.println(file);
 		await(sleepAsync(1000));
-		String file2 = await(PromiseTools.downloadUrlAsync("http://www.google.es/"));
+		String file2 = await(downloadUrlAsync("http://www.google.es/"));
 		System.out.println(file2);
-		return complete(file2);
+		return complete(null);
 	}
 }
 ```
