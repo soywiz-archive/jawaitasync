@@ -6,6 +6,7 @@ import com.ning.http.client.Response;
 import jawaitasync.loop.EventLoopHolder;
 
 import java.io.IOException;
+import java.util.concurrent.ThreadPoolExecutor;
 
 public class PromiseTools {
 	static public Promise<String> downloadUrlAsync(String url) throws IOException {
@@ -46,6 +47,25 @@ public class PromiseTools {
 		EventLoopHolder.instance.setTimeout(() -> {
 			promise.reject(exception);
 		}, milliseconds);
+		return promise;
+	}
+
+	static public <T> Promise<T> runTaskAsync(RunnableYieldingResult<T> callback) {
+		Promise<T> promise = new Promise<>();
+		// @TODO: Use ThreadPool
+		new Thread(() -> {
+			promise.resolve(callback.run());
+		}).start();
+		return promise;
+	}
+
+	static public Promise<?> runTaskAsync(Runnable callback) {
+		Promise<?> promise = new Promise<>();
+		// @TODO: Use ThreadPool
+		new Thread(() -> {
+			callback.run();
+			promise.resolve(null);
+		}).start();
 		return promise;
 	}
 }

@@ -1,3 +1,4 @@
+import jawaitasync.PromiseTools;
 import jawaitasync.loop.EventLoopHolder;
 import jawaitasync.processor.AsmProcessor;
 import jawaitasync.vfs.FileSVfs;
@@ -14,7 +15,16 @@ public class ExampleMain {
 		new AsmProcessor().processFile(new SVfsFile(vfs, "samples/DownloadUrlExample.class"));
 
 		//new CompositionExample().testAsync();
+		PromiseTools.runTaskAsync(() -> {
+			long m = 0;
+			for (long n = 0; n < 2000000000; n++) m += n;
+			return m;
+		}).then((result) -> {
+			System.out.println(result);
+		});
+
 		new DownloadUrlExample().downloadFilesAsync();
+
 		EventLoopHolder.instance.loop();
 	}
 }
