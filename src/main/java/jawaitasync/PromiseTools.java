@@ -35,9 +35,13 @@ public class PromiseTools {
 	}
 
 	static public Promise sleepAsync(int milliseconds) {
-		Promise<?> promise = new Promise();
+		return sleepAsync(milliseconds, null);
+	}
+
+	static public <T> Promise<T> sleepAsync(int milliseconds, final T result) {
+		Promise<T> promise = new Promise<>();
 		EventLoopHolder.instance.setTimeout(() -> {
-			promise.resolve(null);
+			promise.resolve(result);
 		}, milliseconds);
 		return promise;
 	}

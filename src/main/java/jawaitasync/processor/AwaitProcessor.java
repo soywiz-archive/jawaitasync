@@ -3,11 +3,13 @@ package jawaitasync.processor;
 import jawaitasync.Promise;
 import jawaitasync.ResultRunnable;
 import jawaitasync.vfs.SVfsFile;
+import org.apache.commons.io.FileUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,7 +63,8 @@ public class AwaitProcessor {
 		return nodes;
 	}
 
-	static final Type promiseType = Type.getType(Promise.class);
+	static final Type Promise_TYPE = Type.getType(Promise.class);
+	static final Type Object_TYPE = Type.getType(Object.class);
 
 	private MethodNode createTransformedConstructor(ClassNode cn, MethodNode method) throws Exception {
 		int argumentCount = getMethodArgumentCountIncludingThis(method);
@@ -85,10 +88,10 @@ public class AwaitProcessor {
 
 
 		mnc.instructions.add(new IntInsnNode(ALOAD, 0));
-		mnc.instructions.add(new TypeInsnNode(NEW, promiseType.getInternalName()));
+		mnc.instructions.add(new TypeInsnNode(NEW, Promise_TYPE.getInternalName()));
 		mnc.instructions.add(new InsnNode(DUP));
-		mnc.instructions.add(new MethodInsnNode(INVOKESPECIAL, promiseType.getInternalName(), "<init>", Type.getMethodDescriptor(Type.VOID_TYPE), false));
-		mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "promise", promiseType.getDescriptor()));
+		mnc.instructions.add(new MethodInsnNode(INVOKESPECIAL, Promise_TYPE.getInternalName(), "<init>", Type.getMethodDescriptor(Type.VOID_TYPE), false));
+		mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "promise", Promise_TYPE.getDescriptor()));
 
 		mnc.instructions.add(new IntInsnNode(ALOAD, 0));
 		mnc.instructions.add(new IntInsnNode(BIPUSH, 0));
@@ -112,13 +115,13 @@ public class AwaitProcessor {
 		cn.name = classNode.name + "$" + method.name + "$Runnable";
 		cn.sourceFile = classNode.sourceFile;
 		//cn.name = classNode.name + "__" + method.name + "__Runnable";
-		cn.superName = Type.getType(Object.class).getInternalName();
+		cn.superName = Object_TYPE.getInternalName();
 		//System.out.println("cn.superName: " + cn.superName);
 
 		cn.interfaces.add(Type.getType(ResultRunnable.class).getInternalName());
 
 		cn.fields.add(new FieldNode(ACC_PUBLIC, "state", "I", null, null));
-		cn.fields.add(new FieldNode(ACC_PUBLIC, "promise", Type.getType(Promise.class).getDescriptor(), null, null));
+		cn.fields.add(new FieldNode(ACC_PUBLIC, "promise", Promise_TYPE.getDescriptor(), null, null));
 
 		int argumentCount = getMethodArgumentCountIncludingThis(method);
 		LocalVariableNode[] localsByIndex = getLocalsByIndex(method);
@@ -130,7 +133,7 @@ public class AwaitProcessor {
 
 		cn.methods.add(createTransformedConstructor(cn, method));
 
-		MethodNode mn = new MethodNode(ACC_PUBLIC, "run", Type.getMethodType(Type.VOID_TYPE, Type.getType(Object.class)).getDescriptor(), null, null);
+		MethodNode mn = new MethodNode(ACC_PUBLIC, "run", Type.getMethodType(Type.VOID_TYPE, Object_TYPE).getDescriptor(), null, null);
 
 		//mn.localVariables.add(0, new LocalVariableNode("this", cn.name, ));
 
@@ -191,7 +194,7 @@ public class AwaitProcessor {
 				//System.out.println("await!");
 				InsnList list = new InsnList();
 				list.add(new VarInsnNode(ALOAD, 0));
-				list.add(new MethodInsnNode(INVOKEVIRTUAL, Type.getType(Promise.class).getInternalName(), "then", Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(ResultRunnable.class)), false));
+				list.add(new MethodInsnNode(INVOKEVIRTUAL, Promise_TYPE.getInternalName(), "then", Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(ResultRunnable.class)), false));
 				list.add(new VarInsnNode(ALOAD, 0));
 				list.add(new IntInsnNode(BIPUSH, stateLabelNodes.size()));
 				list.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
@@ -202,15 +205,18 @@ public class AwaitProcessor {
 
 				LabelNode skip_throw_label = new LabelNode();
 
-				list.add(new VarInsnNode(ALOAD, 1)); // Put the result of the promise here. (first parameter received)
-				list.add(new TypeInsnNode(INSTANCEOF, Type.getType(Throwable.class).getInternalName()));
-				list.add(new JumpInsnNode(IFEQ, skip_throw_label));
-				{
+				if (true) {
+				//if (false) {
 					list.add(new VarInsnNode(ALOAD, 1)); // Put the result of the promise here. (first parameter received)
-					list.add(new TypeInsnNode(CHECKCAST, Type.getType(Throwable.class).getInternalName()));
-					list.add(new InsnNode(ATHROW));
+					list.add(new TypeInsnNode(INSTANCEOF, Type.getType(Throwable.class).getInternalName()));
+					list.add(new JumpInsnNode(IFEQ, skip_throw_label));
+					{
+						list.add(new VarInsnNode(ALOAD, 1)); // Put the result of the promise here. (first parameter received)
+						list.add(new TypeInsnNode(CHECKCAST, Type.getType(Throwable.class).getInternalName()));
+						list.add(new InsnNode(ATHROW));
+					}
+					list.add(skip_throw_label);
 				}
-				list.add(skip_throw_label);
 
 				list.add(new VarInsnNode(ALOAD, 1));
 
@@ -221,9 +227,9 @@ public class AwaitProcessor {
 			if (isCompleteMethodCall(node)) {
 				InsnList list = new InsnList();
 				list.add(new IntInsnNode(ALOAD, 0));
-				list.add(new FieldInsnNode(GETFIELD, cn.name, "promise", promiseType.getDescriptor()));
+				list.add(new FieldInsnNode(GETFIELD, cn.name, "promise", Promise_TYPE.getDescriptor()));
 				list.add(new InsnNode(SWAP));
-				list.add(new MethodInsnNode(INVOKEVIRTUAL, promiseType.getInternalName(), "resolve", Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(Object.class)), false));
+				list.add(new MethodInsnNode(INVOKEVIRTUAL, Promise_TYPE.getInternalName(), "resolve", Type.getMethodDescriptor(Type.VOID_TYPE, Object_TYPE), false));
 
 				mn.instructions.insertBefore(node, list);
 				mn.instructions.remove(node);
@@ -331,9 +337,21 @@ public class AwaitProcessor {
 	}
 
 	private static byte[] getClassBytes(ClassNode cn) throws Exception {
-		ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-		cn.accept(cw);
-		return cw.toByteArray();
+		try {
+			ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+			cn.accept(cw);
+			return cw.toByteArray();
+		} catch (Exception exception) {
+			exception.printStackTrace();
+			ClassWriter cw = new ClassWriter(0);
+			cn.accept(cw);
+			try {
+				FileUtils.writeByteArrayToFile(new File("c:/temp/" + cn.name.replace('/', '.') + ".debug.class"), cw.toByteArray());
+			} catch (Throwable t) {
+
+			}
+			throw(exception);
+		}
 	}
 }
 

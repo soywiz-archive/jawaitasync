@@ -33,15 +33,23 @@ public class SimpleTest {
 		TestAsyncClass.assertCallAsyncMethod("hello!0[0:1000]world!1", StaticExample.class.getTypeName(), "test2Async", true);
 	}
 
-	/*
-	@org.junit.Test
-	public void testTryCatch() throws Exception {
-		TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample.class.getTypeName(), "testAsync", false);
-	}
-	*/
+	//@org.junit.Test
+	//public void testTryCatch() throws Exception {
+	//	TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample.class.getTypeName(), "testAsync", false);
+	//}
+
+	//@org.junit.Test
+	//public void testTryCatch2() throws Exception {
+	//	TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample2.class.getTypeName(), "testAsync", false);
+	//}
 
 	@org.junit.Test
 	public void testThrowNoCatch() throws Exception {
 		TestAsyncClass.assertCallAsyncMethod("[0:1000][Exception:ThrowingException]", ThrowNoCatchExample.class.getTypeName(), "testAsync", false);
 	}
+
+	//@org.junit.Test
+	//public void testTransformingAwait() throws Exception {
+	//	TestAsyncClass.assertCallAsyncMethod("--", TransformingAwaitExample.class.getTypeName(), "testAsync", false);
+	//}
 }
