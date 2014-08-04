@@ -1,8 +1,8 @@
 package jawaitasync.vfs;
 
-import org.apache.commons.io.FileUtils;
-
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 public class FileSVfs extends SVfs {
@@ -21,7 +21,13 @@ public class FileSVfs extends SVfs {
 
 	@Override
 	protected byte[] _get(String name) throws IOException {
-		return FileUtils.readFileToByteArray(getFile(name));
+		File file = getFile(name);
+		byte[] out = null;
+		try (FileInputStream fis = new FileInputStream(file)) {
+			out = new byte[fis.available()];
+			fis.read(out);
+		}
+		return out;
 	}
 
 	@Override
@@ -31,7 +37,10 @@ public class FileSVfs extends SVfs {
 
 	@Override
 	public void _put(String name, byte[] data) throws IOException {
-		FileUtils.writeByteArrayToFile(getFile(name), data);
+		File file = getFile(name);
+		try (FileOutputStream fos = new FileOutputStream(file)) {
+			fos.write(data);
+		}
 	}
 
 	@Override

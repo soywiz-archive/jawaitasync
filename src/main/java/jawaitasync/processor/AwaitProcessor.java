@@ -2,8 +2,8 @@ package jawaitasync.processor;
 
 import jawaitasync.Promise;
 import jawaitasync.ResultRunnable;
+import jawaitasync.vfs.FileSVfs;
 import jawaitasync.vfs.SVfsFile;
-import org.apache.commons.io.FileUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
@@ -65,6 +65,8 @@ public class AwaitProcessor {
 
 	static final Type Promise_TYPE = Type.getType(Promise.class);
 	static final Type Object_TYPE = Type.getType(Object.class);
+	static final Type Long_TYPE = Type.getType(Long.class);
+	static final Type Double_TYPE = Type.getType(Double.class);
 
 	private MethodNode createTransformedConstructor(ClassNode cn, MethodNode method) throws Exception {
 		int argumentCount = getMethodArgumentCountIncludingThis(method);
@@ -163,8 +165,8 @@ public class AwaitProcessor {
 				VarInsnNode varNode = (VarInsnNode) node;
 				LocalVariableNode localVar = (LocalVariableNode) localsByIndex[varNode.var];
 				InsnList list = new InsnList();
-				list.add(new VarInsnNode(ALOAD, 0));
 				//System.out.println(localVar.name);
+				list.add(new VarInsnNode(ALOAD, 0));
 
 				switch (varNode.getOpcode()) {
 					case ILOAD:
@@ -179,7 +181,12 @@ public class AwaitProcessor {
 					case FSTORE:
 					case DSTORE:
 					case ASTORE:
-						list.add(new InsnNode(SWAP));
+						if (Type.getType(localVar.desc).getSize() == 2) {
+							list.add(new InsnNode(DUP_X2));
+							list.add(new InsnNode(POP));
+						} else {
+							list.add(new InsnNode(SWAP));
+						}
 						list.add(new FieldInsnNode(PUTFIELD, cn.name, "local_" + localVar.name, localVar.desc));
 						break;
 					default:
@@ -346,7 +353,7 @@ public class AwaitProcessor {
 			ClassWriter cw = new ClassWriter(0);
 			cn.accept(cw);
 			try {
-				FileUtils.writeByteArrayToFile(new File("c:/temp/" + cn.name.replace('/', '.') + ".debug.class"), cw.toByteArray());
+				new FileSVfs("c:/temp").access(cn.name.replace('/', '.') + ".debug.class").write(cw.toByteArray());
 			} catch (Throwable t) {
 
 			}

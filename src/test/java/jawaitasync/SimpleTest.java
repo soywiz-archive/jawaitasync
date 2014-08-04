@@ -48,6 +48,11 @@ public class SimpleTest {
 		TestAsyncClass.assertCallAsyncMethod("[0:1000][Exception:ThrowingException]", ThrowNoCatchExample.class.getTypeName(), "testAsync", false);
 	}
 
+	@org.junit.Test
+	public void testLong() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("Started[0:1000]Result:100000000", LongExample.class.getTypeName(), "testAsync", false);
+	}
+
 	//@org.junit.Test
 	//public void testTransformingAwait() throws Exception {
 	//	TestAsyncClass.assertCallAsyncMethod("--", TransformingAwaitExample.class.getTypeName(), "testAsync", false);
