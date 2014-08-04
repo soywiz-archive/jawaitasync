@@ -8,11 +8,14 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
-import java.io.File;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
+import static jawaitasync.processor.ClassNodeUtils.getField;
+import static jawaitasync.processor.ClassNodeUtils.getReturn;
 import static org.objectweb.asm.Opcodes.*;
 
 /**
@@ -53,11 +56,11 @@ public class AwaitProcessor {
 
 	private LocalVariableNode[] getLocalsByIndex(MethodNode method) {
 		int maxIndex = 0;
-		for (LocalVariableNode lv : (LocalVariableNode[])new Linq(method.localVariables).toArray(LocalVariableNode.class)) {
+		for (LocalVariableNode lv : (LocalVariableNode[]) new Linq(method.localVariables).toArray(LocalVariableNode.class)) {
 			maxIndex = Math.max(maxIndex, lv.index);
 		}
 		LocalVariableNode[] nodes = new LocalVariableNode[maxIndex + 1];
-		for (LocalVariableNode lv : (LocalVariableNode[])new Linq(method.localVariables).toArray(LocalVariableNode.class)) {
+		for (LocalVariableNode lv : (LocalVariableNode[]) new Linq(method.localVariables).toArray(LocalVariableNode.class)) {
 			nodes[lv.index] = lv;
 		}
 		return nodes;
@@ -88,7 +91,6 @@ public class AwaitProcessor {
 		mnc.instructions.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false));
 
 
-
 		mnc.instructions.add(new IntInsnNode(ALOAD, 0));
 		mnc.instructions.add(new TypeInsnNode(NEW, Promise_TYPE.getInternalName()));
 		mnc.instructions.add(new InsnNode(DUP));
@@ -110,12 +112,54 @@ public class AwaitProcessor {
 		return mnc;
 	}
 
-	private ClassNode createTransformedClassForMethod(ClassNode classNode, MethodNode method) throws Exception {
+	static private MethodNode getMethod(ClassNode classNode, String name) {
+		for (Object node : classNode.methods) {
+			MethodNode methodNode = (MethodNode) node;
+			if (methodNode.name.equals(name)) return methodNode;
+		}
+		return null;
+	}
+
+	private MethodNode getOrCreateFieldAccessMethod(ClassNode outerClass, String fieldName, boolean write) {
+		String methodName = fieldName + "$Async$" + (write ? "set" : "get");
+		Type outerClassType = Type.getType("L" + outerClass.name + ";");
+		MethodNode methodNode = getMethod(outerClass, methodName);
+
+		if (methodNode == null) {
+			FieldNode field = getField(outerClass, fieldName);
+			Type fieldType = Type.getType(field.desc);
+			boolean isStatic = (field.access & ACC_STATIC) != 0;
+			List<Type> args = new LinkedList<>();
+			if (!isStatic) args.add(outerClassType);
+			if (write) args.add(fieldType);
+			Type methodType = Type.getMethodType(write ? Type.VOID_TYPE : fieldType, args.toArray(new Type[1]));
+			String methodTypeDesc = methodType.getDescriptor();
+			System.out.println(methodTypeDesc);
+			methodNode = new MethodNode(ACC_PUBLIC | ACC_STATIC, methodName, methodTypeDesc, null, null);
+
+			int opcode = write ? (isStatic ? PUTSTATIC : PUTFIELD) : (isStatic ? GETSTATIC : GETFIELD);
+			if (!isStatic) methodNode.instructions.add(new VarInsnNode(ALOAD, 0));
+			if (write) methodNode.instructions.add(new VarInsnNode(ALOAD, 1));
+			methodNode.instructions.add(new FieldInsnNode(opcode, outerClass.name, field.name, field.desc));
+			methodNode.instructions.add(write ? getReturn(Type.VOID_TYPE) : getReturn(Type.getType(field.desc)));
+			outerClass.methods.add(methodNode);
+		}
+
+		return methodNode;
+	}
+
+	private ClassNode createTransformedClassForMethod(ClassNode outerClass, ClassNode outerClassModify, MethodNode method) throws Exception {
 		ClassNode cn = new ClassNode();
-		cn.version = V1_8;
-		cn.access = ACC_PUBLIC;
-		cn.name = classNode.name + "$" + method.name + "$Runnable";
-		cn.sourceFile = classNode.sourceFile;
+		cn.version = outerClass.version;
+		cn.access = ACC_SYNTHETIC | ACC_PRIVATE;
+		cn.name = outerClass.name + "$" + method.name + "$Runnable";
+		//cn.name = classNode.name + "$0";
+		cn.sourceFile = outerClass.sourceFile;
+		cn.outerClass = outerClass.name;
+		cn.outerMethod = method.name;
+		cn.outerMethodDesc = method.desc;
+		//cn.sourceDebug
+
 		//cn.name = classNode.name + "__" + method.name + "__Runnable";
 		cn.superName = Object_TYPE.getInternalName();
 		//System.out.println("cn.superName: " + cn.superName);
@@ -160,13 +204,17 @@ public class AwaitProcessor {
 		stateLabelNodes.add(startLabel);
 		mn.instructions.insert(mn.instructions.getFirst(), startLabel);
 
+		for (TryCatchBlockNode node : new Linq<TryCatchBlockNode>(mn.tryCatchBlocks)) {
+			//mn.instructions.
+			//node.start.getNext()
+		}
+
 		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
 			if (node instanceof VarInsnNode) {
 				VarInsnNode varNode = (VarInsnNode) node;
 				LocalVariableNode localVar = (LocalVariableNode) localsByIndex[varNode.var];
 				InsnList list = new InsnList();
 				//System.out.println(localVar.name);
-				list.add(new VarInsnNode(ALOAD, 0));
 
 				switch (varNode.getOpcode()) {
 					case ILOAD:
@@ -174,6 +222,7 @@ public class AwaitProcessor {
 					case FLOAD:
 					case DLOAD:
 					case ALOAD:
+						list.add(new VarInsnNode(ALOAD, 0));
 						list.add(new FieldInsnNode(GETFIELD, cn.name, "local_" + localVar.name, localVar.desc));
 						break;
 					case ISTORE:
@@ -181,6 +230,7 @@ public class AwaitProcessor {
 					case FSTORE:
 					case DSTORE:
 					case ASTORE:
+						list.add(new VarInsnNode(ALOAD, 0));
 						if (Type.getType(localVar.desc).getSize() == 2) {
 							list.add(new InsnNode(DUP_X2));
 							list.add(new InsnNode(POP));
@@ -197,6 +247,29 @@ public class AwaitProcessor {
 				mn.instructions.remove(node);
 				//System.out.println(varNode);
 			}
+			if (node instanceof FieldInsnNode) {
+				FieldInsnNode fieldNode = (FieldInsnNode) node;
+				if (fieldNode.owner.equals(outerClass.name)) {
+					FieldNode field = getField(outerClass, fieldNode.name);
+					if ((field.access & (ACC_PRIVATE | ACC_PROTECTED)) != 0) {
+						// Must create or use an utility method for accessing that field without visibility access
+						//System.out.println(field);
+						MethodNode accessPrivateMethod = null;
+						switch (fieldNode.getOpcode()) {
+							case GETSTATIC:
+							case GETFIELD:
+								accessPrivateMethod = getOrCreateFieldAccessMethod(outerClassModify, field.name, false);
+								break;
+							case PUTSTATIC:
+							case PUTFIELD:
+								accessPrivateMethod = getOrCreateFieldAccessMethod(outerClassModify, field.name, true);
+								break;
+						}
+						mn.instructions.insertBefore(node, new MethodInsnNode(INVOKESTATIC, outerClass.name, accessPrivateMethod.name, accessPrivateMethod.desc, false));
+						mn.instructions.remove(node);
+					}
+				}
+			}
 			if (isAwaitMethodCall(node)) {
 				//System.out.println("await!");
 				InsnList list = new InsnList();
@@ -205,7 +278,7 @@ public class AwaitProcessor {
 				list.add(new VarInsnNode(ALOAD, 0));
 				list.add(new IntInsnNode(BIPUSH, stateLabelNodes.size()));
 				list.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
-				list.add(new InsnNode(RETURN));
+				list.add(getReturn(Type.VOID_TYPE));
 				LabelNode awaitLabel = new LabelNode();
 				stateLabelNodes.add(awaitLabel);
 				list.add(awaitLabel);
@@ -213,7 +286,7 @@ public class AwaitProcessor {
 				LabelNode skip_throw_label = new LabelNode();
 
 				if (true) {
-				//if (false) {
+					//if (false) {
 					list.add(new VarInsnNode(ALOAD, 1)); // Put the result of the promise here. (first parameter received)
 					list.add(new TypeInsnNode(INSTANCEOF, Type.getType(Throwable.class).getInternalName()));
 					list.add(new JumpInsnNode(IFEQ, skip_throw_label));
@@ -248,7 +321,7 @@ public class AwaitProcessor {
 				case LRETURN:
 				case FRETURN:
 				case DRETURN:
-					mn.instructions.insertBefore(node, new InsnNode(RETURN));
+					mn.instructions.insertBefore(node, getReturn(Type.VOID_TYPE));
 					mn.instructions.remove(node);
 					break;
 			}
@@ -284,7 +357,7 @@ public class AwaitProcessor {
 
 		int awaitMethodCount = 0;
 
-		for (Object _method : clazz.methods) {
+		for (Object _method : clazz.methods.toArray()) {
 			MethodNode method = (MethodNode) _method;
 
 			if (hasAwait(method)) {
@@ -299,7 +372,7 @@ public class AwaitProcessor {
 				MethodNode method2 = ClassNodeUtils.getMethod(clazz2, method.name, method.desc);
 
 				//System.out.println(method2.name);
-				ClassNode runClass = createTransformedClassForMethod(clazz2, method2);
+				ClassNode runClass = createTransformedClassForMethod(clazz2, clazz, method2);
 				//System.out.println(outputFile.getParent());
 
 				//System.out.println(runClass.name + ".class");
@@ -347,6 +420,9 @@ public class AwaitProcessor {
 		try {
 			ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
 			cn.accept(cw);
+
+			//new FileSVfs("c:/temp").access(cn.name.replace('/', '.') + ".debug.class").write(cw.toByteArray());
+
 			return cw.toByteArray();
 		} catch (Exception exception) {
 			exception.printStackTrace();
@@ -357,7 +433,7 @@ public class AwaitProcessor {
 			} catch (Throwable t) {
 
 			}
-			throw(exception);
+			throw (exception);
 		}
 	}
 }

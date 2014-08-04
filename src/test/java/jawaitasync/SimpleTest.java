@@ -33,6 +33,11 @@ public class SimpleTest {
 		TestAsyncClass.assertCallAsyncMethod("hello!0[0:1000]world!1", StaticExample.class.getTypeName(), "test2Async", true);
 	}
 
+	@org.junit.Test
+	public void testAccessPrivate() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("public[0:1000]private[1000:1000]changed", AccessPrivateExample.class.getTypeName(), "testAsync", false);
+	}
+
 	//@org.junit.Test
 	//public void testTryCatch() throws Exception {
 	//	TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample.class.getTypeName(), "testAsync", false);
