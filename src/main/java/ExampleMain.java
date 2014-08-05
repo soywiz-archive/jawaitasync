@@ -13,6 +13,7 @@ public class ExampleMain {
 		//new AsmProcessor().processFile(new SVfsFile(vfs, "samples/DownloadUrlExample.class"));
 
 		EventLoopHolder.instance.loop();
+		System.out.println("Main event loop completed");
 	}
 }
 

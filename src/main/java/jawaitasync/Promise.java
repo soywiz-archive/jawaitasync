@@ -22,12 +22,14 @@ public class Promise<T> {
 	}
 
 	public void resolve(T value) {
+		if (resolved) return;
 		resolved = true;
 		resolvedValue = value;
 		checkResolved();
 	}
 
 	public void reject(Exception exception) {
+		if (resolved) return;
 		resolved = true;
 		resolvedValue = exception;
 		checkResolved();

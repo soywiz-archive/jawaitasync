@@ -3,9 +3,18 @@ package jawaitasync;
 import com.ning.http.client.AsyncCompletionHandler;
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.Response;
+import com.ning.http.client.websocket.WebSocketListener;
 import jawaitasync.loop.EventLoopHolder;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.channels.spi.AbstractSelector;
+import java.nio.channels.spi.SelectorProvider;
 import java.util.concurrent.ThreadPoolExecutor;
 
 public class PromiseTools {
@@ -71,5 +80,8 @@ public class PromiseTools {
 			promise.resolve(null);
 		}).start();
 		return promise;
+	}
+
+	static public void test() throws Exception {
 	}
 }
