@@ -226,6 +226,8 @@ public class AwaitProcessor {
 		//mn.localVariables.add(0, new LocalVariableNode("this", cn.name, ));
 
 		mn.instructions.add(method.instructions);
+		mn.tryCatchBlocks = method.tryCatchBlocks;
+		//mn.tryCatchBlocks
 
 		//mn.localVariables.add(new LocalVariableNode("this", classType.getDescriptor(), cn.signature, (LabelNode)mn.instructions.getFirst(), (LabelNode)mn.instructions.getLast(), 0));
 
@@ -458,6 +460,7 @@ public class AwaitProcessor {
 				//System.out.println("Method with await! " + method.name);
 
 				method.instructions = new InsnList();
+				method.tryCatchBlocks = new LinkedList<>();
 
 				MethodNode method2 = ClassNodeUtils.getMethod(clazz2, method.name, method.desc);
 
