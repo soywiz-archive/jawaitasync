@@ -259,10 +259,9 @@ public class AwaitProcessor {
 			Frame frame = framesByInstruction.get(node);
 			//System.out.println(frame);
 			if (node instanceof VarInsnNode) {
+				boolean isNodeWrite = false;
+
 				VarInsnNode varNode = (VarInsnNode) node;
-				LocalVariableNode localVar = (LocalVariableNode) localsByIndex[varNode.var];
-				InsnList list = new InsnList();
-				//System.out.println(localVar.name);
 
 				switch (varNode.getOpcode()) {
 					case ILOAD:
@@ -270,25 +269,51 @@ public class AwaitProcessor {
 					case FLOAD:
 					case DLOAD:
 					case ALOAD:
-						list.add(new VarInsnNode(ALOAD, 0));
-						list.add(new FieldInsnNode(GETFIELD, cn.name, "local_" + localVar.name, localVar.desc));
+						isNodeWrite = false;
 						break;
 					case ISTORE:
 					case LSTORE:
 					case FSTORE:
 					case DSTORE:
 					case ASTORE:
-						list.add(new VarInsnNode(ALOAD, 0));
-						if (Type.getType(localVar.desc).getSize() == 2) {
-							list.add(new InsnNode(DUP_X2));
-							list.add(new InsnNode(POP));
-						} else {
-							list.add(new InsnNode(SWAP));
-						}
-						list.add(new FieldInsnNode(PUTFIELD, cn.name, "local_" + localVar.name, localVar.desc));
+						isNodeWrite = true;
 						break;
 					default:
 						throw (new Exception("Can't handle opcode"));
+				}
+				//LocalVariableNode localVar;
+				String localVarName;
+				String localVarDesc;
+				if (varNode.var >= localsByIndex.length) {
+					Type type = ((TypeValue)frame.getStack(isNodeWrite ? 1 : 0)).getType();
+					String localName = "unnamed_" + varNode.var;
+					String fieldName = "local_" + localName;
+					FieldNode field = ClassNodeUtils.getField(cn, fieldName);
+					if (field == null) {
+						cn.fields.add(new FieldNode(ACC_PUBLIC, fieldName, type.getDescriptor(), null, null));
+					}
+					localVarName = localName;
+					localVarDesc = type.getDescriptor();
+				} else {
+					LocalVariableNode localVar = (LocalVariableNode) localsByIndex[varNode.var];
+					localVarName = localVar.name;
+					localVarDesc = localVar.desc;
+				}
+				InsnList list = new InsnList();
+				//System.out.println(localVar.name);
+
+				if (isNodeWrite) {
+					list.add(new VarInsnNode(ALOAD, 0));
+					if (Type.getType(localVarDesc).getSize() == 2) {
+						list.add(new InsnNode(DUP_X2));
+						list.add(new InsnNode(POP));
+					} else {
+						list.add(new InsnNode(SWAP));
+					}
+					list.add(new FieldInsnNode(PUTFIELD, cn.name, "local_" + localVarName, localVarDesc));
+				} else {
+					list.add(new VarInsnNode(ALOAD, 0));
+					list.add(new FieldInsnNode(GETFIELD, cn.name, "local_" + localVarName, localVarDesc));
 				}
 
 				mn.instructions.insertBefore(node, list);
