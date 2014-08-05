@@ -1,9 +1,7 @@
 package jawaitasync.tools;
 
 import jawaitasync.Promise;
-import jawaitasync.loop.EventLoop;
 import jawaitasync.loop.EventLoopHolder;
-import sun.nio.ch.DirectBuffer;
 
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -32,7 +30,7 @@ public class AsyncSocketListener {
 					} catch (Exception e) {
 						e.printStackTrace();
 						promise.reject(e);
-						throw(e);
+						throw (e);
 					}
 
 					while (true) {
@@ -41,8 +39,8 @@ public class AsyncSocketListener {
 						System.out.println("select: " + readyChannels);
 						if (readyChannels == 0) continue;
 
-						try {
-							for (SelectionKey key : selector.selectedKeys()) {
+						for (SelectionKey key : selector.selectedKeys()) {
+							try {
 								//System.out.println(key.interestOps() + ":" + key.channel());
 								if (key.isAcceptable()) {
 									ServerSocketChannel ssc2 = (ServerSocketChannel) key.channel();
@@ -66,9 +64,10 @@ public class AsyncSocketListener {
 									}
 									//System.out.println(as);
 								}
+							} catch (Exception e) {
+								e.printStackTrace();
+								key.cancel();
 							}
-						} catch (Exception e) {
-							e.printStackTrace();
 						}
 						selector.selectedKeys().clear();
 					}

@@ -52,11 +52,7 @@ public class AwaitProcessor {
 	}
 
 	private int getMethodArgumentCountIncludingThis(MethodNode method) {
-		boolean isStatic = ((method.access & ACC_STATIC) != 0);
-		int argumentCount = 0;
-		if (!isStatic) argumentCount++;
-		if (method.parameters != null) argumentCount += method.parameters.size();
-		return argumentCount;
+		return Type.getMethodType(method.desc).getArgumentTypes().length + (((method.access & ACC_STATIC) != 0) ? 0 : 1);
 	}
 
 	private LocalVariableNode[] getLocalsByIndex(MethodNode method) {
@@ -139,7 +135,7 @@ public class AwaitProcessor {
 			if (write) args.add(fieldType);
 			Type methodType = Type.getMethodType(write ? Type.VOID_TYPE : fieldType, args.toArray(new Type[1]));
 			String methodTypeDesc = methodType.getDescriptor();
-			System.out.println(methodTypeDesc);
+			//System.out.println(methodTypeDesc);
 			methodNode = new MethodNode(ACC_PUBLIC | ACC_STATIC, methodName, methodTypeDesc, null, null);
 
 			int opcode = write ? (isStatic ? PUTSTATIC : PUTFIELD) : (isStatic ? GETSTATIC : GETFIELD);
@@ -366,6 +362,17 @@ public class AwaitProcessor {
 				mn.instructions.remove(node);
 			}
 
+			if (node instanceof MethodInsnNode) {
+				MethodInsnNode methodNode = (MethodInsnNode)node;
+				if (methodNode.owner.equals(outerClass.name)) {
+					MethodNode method2 = ClassNodeUtils.getMethod(outerClass, methodNode.name, methodNode.desc);
+					if ((method2.access & (ACC_PRIVATE | ACC_PROTECTED)) != 0) {
+						System.out.println("calling a private class method!");
+						throw(new NotImplementedException());
+					}
+				}
+			}
+
 			switch (node.getOpcode()) {
 				case ARETURN:
 				case IRETURN:
@@ -435,6 +442,7 @@ public class AwaitProcessor {
 				method.instructions.add(new InsnNode(DUP));
 				MethodNode mnInit = (MethodNode) runClass.methods.get(0);
 				MethodNode mnRun = (MethodNode) runClass.methods.get(1);
+				//System.out.println(argumentCount + ";" + method.name + ";" + clazz.name);
 				for (int n = 0; n < argumentCount; n++) {
 					method.instructions.add(new IntInsnNode(ALOAD, n));
 				}

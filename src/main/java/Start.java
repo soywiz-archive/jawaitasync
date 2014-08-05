@@ -1,9 +1,11 @@
+import com.sun.xml.internal.ws.encoding.DataHandlerDataSource;
 import jawaitasync.Promise;
 import jawaitasync.PromiseTools;
 import jawaitasync.ResultRunnable;
 import jawaitasync.tools.AsyncSocket;
 import jawaitasync.tools.AsyncSocketListener;
 
+import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 
 import static jawaitasync.Promise.await;
@@ -26,11 +28,15 @@ public class Start {
 			System.out.println("listening at 8081");
 			AsyncSocket socket = await(asl.acceptAsync());
 			System.out.println("accepted: " + socket);
-			//String line = new String(await(socket.readUntilAsync(new byte[] { '\r', '\n' })), "UTF-8");
-			byte[] data = await(socket.readBytesAsync(64));
-			socket.close();
-			System.out.println("readed: " + new String(data, "UTF-8"));
+			handleSocket(socket);
 		}
+	}
+
+	static public void handleSocket(AsyncSocket socket) throws UnsupportedEncodingException {
+		//String line = new String(await(socket.readUntilAsync(new byte[] { '\r', '\n' })), "UTF-8");
+		byte[] data = await(socket.readBytesAsync(64));
+		//socket.close();
+		System.out.println("readed: " + new String(data, "UTF-8"));
 	}
 
 /*

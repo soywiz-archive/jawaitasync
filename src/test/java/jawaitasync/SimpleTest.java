@@ -43,18 +43,6 @@ public class SimpleTest {
 		TestAsyncClass.assertCallAsyncMethod("public[0:1000]private[1000:1000]changed", AccessPrivateExample.class.getTypeName(), "testAsync", false);
 	}
 
-	//@org.junit.Test
-	//public void testTryCatch() throws Exception {
-	//	TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample.class.getTypeName(), "testAsync", false);
-	//}
-
-	/*
-	@org.junit.Test
-	public void testTryCatch2() throws Exception {
-		TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample2.class.getTypeName(), "testAsync", false);
-	}
-	*/
-
 	@org.junit.Test
 	public void testThrowNoCatch() throws Exception {
 		TestAsyncClass.assertCallAsyncMethod("[0:1000][Exception:ThrowingException]", ThrowNoCatchExample.class.getTypeName(), "testAsync", false);
@@ -69,4 +57,28 @@ public class SimpleTest {
 	public void testTransformingAwait() throws Exception {
 		TestAsyncClass.assertCallAsyncMethod("[0:1000]result:-100", TransformingAwaitExample.class.getTypeName(), "testAsync", false);
 	}
+
+	//@org.junit.Test
+	//public void testTryCatch() throws Exception {
+	//	TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample.class.getTypeName(), "testAsync", false);
+	//}
+
+	/*
+	@org.junit.Test
+	public void testTryCatch2() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("--", TryCatchExample2.class.getTypeName(), "testAsync", false);
+	}
+	*/
+
+	@org.junit.Test
+	public void testCompositionWithArguments() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("{1}[0:1000]{2}{3:hello world}[1000:1000]", CompositionWithArgumentsExample.class.getTypeName(), "testAsync", false);
+	}
+
+	/*
+	@org.junit.Test
+	public void testAccessPrivateMethod() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("public[0:1000]privateMethod", AccessPrivateMethodExample.class.getTypeName(), "testAsync", false);
+	}
+	*/
 }
