@@ -1,6 +1,5 @@
 package jawaitasync.processor;
 
-import com.sun.javaws.exceptions.InvalidArgumentException;
 import jawaitasync.Promise;
 import jawaitasync.ResultRunnable;
 import jawaitasync.processor.analyzer.TypeInterpreter;
@@ -11,8 +10,8 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.objectweb.asm.tree.analysis.*;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.Frame;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -150,10 +149,10 @@ public class AwaitProcessor {
 	}
 
 	private ClassNode createTransformedClassForMethod(ClassNode outerClass, ClassNode outerClassModify, MethodNode method) throws Exception {
-		Analyzer<TypeValue> analyzer = new Analyzer<>(new TypeInterpreter());
-		Frame<TypeValue>[] frames = analyzer.analyze(outerClass.name, method);
-		HashMap<AbstractInsnNode, Frame<TypeValue>> framesByInstruction = new HashMap<>();
-		for (int n = 0; n < method.instructions.size(); n++){
+		Analyzer analyzer = new Analyzer(new TypeInterpreter());
+		Frame[] frames = analyzer.analyze(outerClass.name, method);
+		HashMap<AbstractInsnNode, Frame> framesByInstruction = new HashMap<>();
+		for (int n = 0; n < method.instructions.size(); n++) {
 			framesByInstruction.put(method.instructions.get(n), frames[n]);
 		}
 
@@ -172,7 +171,7 @@ public class AwaitProcessor {
 
 		Type methodReturnType = Type.getMethodType(method.desc).getReturnType();
 		if ((methodReturnType != Type.VOID_TYPE) && (!methodReturnType.getDescriptor().equals(Type.getType(Promise.class).getDescriptor()))) {
-			throw(new Exception("Method " + outerClass.name + ":" + method.name + " doesn't return a Promise or void"));
+			throw (new Exception("Method " + outerClass.name + ":" + method.name + " doesn't return a Promise or void"));
 		}
 
 		//cn.name = classNode.name + "__" + method.name + "__Runnable";
@@ -227,7 +226,7 @@ public class AwaitProcessor {
 		}
 
 		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
-			Frame<TypeValue> frame = framesByInstruction.get(node);
+			Frame frame = framesByInstruction.get(node);
 			//System.out.println(frame);
 			if (node instanceof VarInsnNode) {
 				VarInsnNode varNode = (VarInsnNode) node;
@@ -304,7 +303,7 @@ public class AwaitProcessor {
 				if (frame.getStackSize() >= 2) {
 					restoreStackNodes = new FieldNode[frame.getStackSize() - 1];
 					for (int m = restoreStackNodes.length - 1; m >= 0; m--) {
-						cn.fields.add(restoreStackNodes[m] = new FieldNode(ACC_PRIVATE, "$$" + incrementalNameIndex++, frame.getStack(m).getType().getDescriptor(), null, null));
+						cn.fields.add(restoreStackNodes[m] = new FieldNode(ACC_PRIVATE, "$$" + incrementalNameIndex++, ((TypeValue) frame.getStack(m)).getType().getDescriptor(), null, null));
 						list.add(new VarInsnNode(ALOAD, 0));
 
 						if (Type.getType(restoreStackNodes[m].desc).getSize() == 2) {
@@ -363,12 +362,12 @@ public class AwaitProcessor {
 			}
 
 			if (node instanceof MethodInsnNode) {
-				MethodInsnNode methodNode = (MethodInsnNode)node;
+				MethodInsnNode methodNode = (MethodInsnNode) node;
 				if (methodNode.owner.equals(outerClass.name)) {
 					MethodNode method2 = ClassNodeUtils.getMethod(outerClass, methodNode.name, methodNode.desc);
 					if ((method2.access & (ACC_PRIVATE | ACC_PROTECTED)) != 0) {
 						System.out.println("calling a private class method!");
-						throw(new NotImplementedException());
+						throw (new Exception("Not implemented"));
 					}
 				}
 			}

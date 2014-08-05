@@ -1,7 +1,3 @@
-import com.sun.xml.internal.ws.encoding.DataHandlerDataSource;
-import jawaitasync.Promise;
-import jawaitasync.PromiseTools;
-import jawaitasync.ResultRunnable;
 import jawaitasync.tools.AsyncSocket;
 import jawaitasync.tools.AsyncSocketListener;
 

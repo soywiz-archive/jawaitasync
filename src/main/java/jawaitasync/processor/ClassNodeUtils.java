@@ -64,7 +64,7 @@ public class ClassNodeUtils {
 			LookupSwitchInsnNode lookupNode = (LookupSwitchInsnNode) node;
 			String out = "";
 			for (int n = 0; n < lookupNode.keys.size(); n++) {
-				out = out + lookupNode.keys.get(n) + ":" + lookupNode.labels.get(n).getLabel() + ", ";
+				out = out + lookupNode.keys.get(n) + ":" + ((LabelNode)lookupNode.labels.get(n)).getLabel() + ", ";
 			}
 			return "LOOKUPSWITCH:" + "" + lookupNode.dflt.getLabel() + " :: " + out;
 		}
