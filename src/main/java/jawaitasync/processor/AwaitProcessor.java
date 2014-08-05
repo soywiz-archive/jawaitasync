@@ -1,16 +1,21 @@
 package jawaitasync.processor;
 
+import com.sun.javaws.exceptions.InvalidArgumentException;
 import jawaitasync.Promise;
 import jawaitasync.ResultRunnable;
+import jawaitasync.processor.analyzer.TypeInterpreter;
+import jawaitasync.processor.analyzer.TypeValue;
 import jawaitasync.vfs.FileSVfs;
 import jawaitasync.vfs.SVfsFile;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.analysis.*;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -149,7 +154,17 @@ public class AwaitProcessor {
 	}
 
 	private ClassNode createTransformedClassForMethod(ClassNode outerClass, ClassNode outerClassModify, MethodNode method) throws Exception {
+		Analyzer<TypeValue> analyzer = new Analyzer<>(new TypeInterpreter());
+		Frame<TypeValue>[] frames = analyzer.analyze(outerClass.name, method);
+		HashMap<AbstractInsnNode, Frame<TypeValue>> framesByInstruction = new HashMap<>();
+		for (int n = 0; n < method.instructions.size(); n++){
+			framesByInstruction.put(method.instructions.get(n), frames[n]);
+		}
+
+		int incrementalNameIndex = 0;
+
 		ClassNode cn = new ClassNode();
+		Type classType = Type.getType("L" + cn.name + ";");
 		cn.version = outerClass.version;
 		cn.access = ACC_SYNTHETIC | ACC_PRIVATE;
 		cn.name = outerClass.name + "$" + method.name + "$Runnable";
@@ -158,7 +173,11 @@ public class AwaitProcessor {
 		cn.outerClass = outerClass.name;
 		cn.outerMethod = method.name;
 		cn.outerMethodDesc = method.desc;
-		//cn.sourceDebug
+
+		Type methodReturnType = Type.getMethodType(method.desc).getReturnType();
+		if ((methodReturnType != Type.VOID_TYPE) && (!methodReturnType.getDescriptor().equals(Type.getType(Promise.class).getDescriptor()))) {
+			throw(new Exception("Method " + outerClass.name + ":" + method.name + " doesn't return a Promise or void"));
+		}
 
 		//cn.name = classNode.name + "__" + method.name + "__Runnable";
 		cn.superName = Object_TYPE.getInternalName();
@@ -185,6 +204,8 @@ public class AwaitProcessor {
 
 		mn.instructions.add(method.instructions);
 
+		//mn.localVariables.add(new LocalVariableNode("this", classType.getDescriptor(), cn.signature, (LabelNode)mn.instructions.getFirst(), (LabelNode)mn.instructions.getLast(), 0));
+
 		// Convert iinc, into load and stores, so after we can convert locals into field access.
 		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
 			if (node instanceof IincInsnNode) {
@@ -210,6 +231,8 @@ public class AwaitProcessor {
 		}
 
 		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
+			Frame<TypeValue> frame = framesByInstruction.get(node);
+			//System.out.println(frame);
 			if (node instanceof VarInsnNode) {
 				VarInsnNode varNode = (VarInsnNode) node;
 				LocalVariableNode localVar = (LocalVariableNode) localsByIndex[varNode.var];
@@ -278,10 +301,38 @@ public class AwaitProcessor {
 				list.add(new VarInsnNode(ALOAD, 0));
 				list.add(new IntInsnNode(BIPUSH, stateLabelNodes.size()));
 				list.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
+
+				// Backup stack
+				FieldNode[] restoreStackNodes = null;
+
+				if (frame.getStackSize() >= 2) {
+					restoreStackNodes = new FieldNode[frame.getStackSize() - 1];
+					for (int m = restoreStackNodes.length - 1; m >= 0; m--) {
+						cn.fields.add(restoreStackNodes[m] = new FieldNode(ACC_PRIVATE, "$$" + incrementalNameIndex++, frame.getStack(m).getType().getDescriptor(), null, null));
+						list.add(new VarInsnNode(ALOAD, 0));
+						list.add(new InsnNode(SWAP));
+						list.add(new FieldInsnNode(PUTFIELD, cn.name, restoreStackNodes[m].name, restoreStackNodes[m].desc));
+					}
+				}
+
+				/*
+				System.out.println("################## RETURN: " + frame.getStackSize());
+				System.out.println("################## RETURN: " + frame.getStack(0).insns.toArray()[0]);
+				System.out.println("################## RETURN: " + frame.getStack(1).insns.toArray()[0]);
+				System.out.println("################## RETURN: " + frame.getStack(2).insns.toArray()[0]);
+				*/
+				//System.out.println("################## RETURN: " + framesByInstruction.get(node.getNext()));
 				list.add(getReturn(Type.VOID_TYPE));
 				LabelNode awaitLabel = new LabelNode();
 				stateLabelNodes.add(awaitLabel);
 				list.add(awaitLabel);
+
+				if (restoreStackNodes != null) {
+					for (int m = 0; m < restoreStackNodes.length; m++) {
+						list.add(new VarInsnNode(ALOAD, 0));
+						list.add(new FieldInsnNode(GETFIELD, cn.name, restoreStackNodes[m].name, restoreStackNodes[m].desc));
+					}
+				}
 
 				LabelNode skip_throw_label = new LabelNode();
 
@@ -336,6 +387,9 @@ public class AwaitProcessor {
 		//LabelNode startLabel = labelNodes2[0];
 		list.add(new LookupSwitchInsnNode(startLabel, Linq.range(stateLabelNodes.size()), labelNodes2));
 		mn.instructions.insert(mn.instructions.getFirst(), list);
+
+		//System.out.println(cn.sourceFile);
+		//for (Object node : mn.instructions.toArray()) System.out.println(ClassNodeUtils.toString((AbstractInsnNode)node));
 
 		cn.methods.add(mn);
 
