@@ -310,18 +310,18 @@ public class AwaitProcessor {
 					for (int m = restoreStackNodes.length - 1; m >= 0; m--) {
 						cn.fields.add(restoreStackNodes[m] = new FieldNode(ACC_PRIVATE, "$$" + incrementalNameIndex++, frame.getStack(m).getType().getDescriptor(), null, null));
 						list.add(new VarInsnNode(ALOAD, 0));
-						list.add(new InsnNode(SWAP));
+
+						if (Type.getType(restoreStackNodes[m].desc).getSize() == 2) {
+							list.add(new InsnNode(DUP_X2));
+							list.add(new InsnNode(POP));
+						} else {
+							list.add(new InsnNode(SWAP));
+						}
+
 						list.add(new FieldInsnNode(PUTFIELD, cn.name, restoreStackNodes[m].name, restoreStackNodes[m].desc));
 					}
 				}
 
-				/*
-				System.out.println("################## RETURN: " + frame.getStackSize());
-				System.out.println("################## RETURN: " + frame.getStack(0).insns.toArray()[0]);
-				System.out.println("################## RETURN: " + frame.getStack(1).insns.toArray()[0]);
-				System.out.println("################## RETURN: " + frame.getStack(2).insns.toArray()[0]);
-				*/
-				//System.out.println("################## RETURN: " + framesByInstruction.get(node.getNext()));
 				list.add(getReturn(Type.VOID_TYPE));
 				LabelNode awaitLabel = new LabelNode();
 				stateLabelNodes.add(awaitLabel);

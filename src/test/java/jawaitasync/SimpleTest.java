@@ -24,6 +24,11 @@ public class SimpleTest {
 	}
 
 	@org.junit.Test
+	public void testLoopIf() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("a0[0:1000]ba1[1000:500]ba2[1500:1000]ba3[2500:500]ba4[3000:1000]b", LoopIfExample.class.getTypeName(), "testAsync", false);
+	}
+
+	@org.junit.Test
 	public void testStatic() throws Exception {
 		TestAsyncClass.assertCallAsyncMethod("hello!0[0:1000]world!1", StaticExample.class.getTypeName(), "test1Async", true);
 	}
