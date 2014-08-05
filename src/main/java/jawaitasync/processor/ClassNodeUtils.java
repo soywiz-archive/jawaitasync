@@ -10,14 +10,19 @@ import static org.objectweb.asm.Opcodes.*;
 
 public class ClassNodeUtils {
 	static public MethodNode getMethod(ClassNode cn, String name) throws Exception {
-		for (MethodNode mn : (MethodNode[]) cn.methods.toArray(new MethodNode[0])) if (mn.name.equals(name)) return mn;
-		throw (new NameNotFoundException("Can't find method " + name));
+		for (MethodNode mn : (MethodNode[]) cn.methods.toArray(new MethodNode[0])) {
+			if (mn.name.equals(name)) return mn;
+		}
+		//throw (new NameNotFoundException("Can't find method " + name));
+		return null;
 	}
 
 	static public MethodNode getMethod(ClassNode cn, String name, String desc) throws Exception {
-		for (MethodNode mn : (MethodNode[]) cn.methods.toArray(new MethodNode[0]))
+		for (MethodNode mn : (MethodNode[]) cn.methods.toArray(new MethodNode[0])) {
 			if (mn.name.equals(name) && mn.desc.equals(desc)) return mn;
-		throw (new NameNotFoundException("Can't find method " + name + " | " + desc));
+		}
+		//throw (new NameNotFoundException("Can't find method " + name + " | " + desc));
+		return null;
 	}
 
 	static public FieldNode getField(ClassNode classNode, String name) {
@@ -26,6 +31,14 @@ public class ClassNodeUtils {
 			if (fieldNode.name.equals(name)) return fieldNode;
 		}
 		return null;
+	}
+
+	static public AbstractInsnNode getLoad(Type type, int index) {
+		if (type == Type.INT_TYPE) return new IntInsnNode(ILOAD, index);
+		if (type == Type.FLOAT_TYPE) return new IntInsnNode(FLOAD, index);
+		if (type == Type.DOUBLE_TYPE) return new IntInsnNode(DLOAD, index);
+		if (type == Type.LONG_TYPE) return new IntInsnNode(LLOAD, index);
+		return new IntInsnNode(ALOAD, index);
 	}
 
 	static public AbstractInsnNode getReturn(Type type) {
@@ -251,6 +264,17 @@ public class ClassNodeUtils {
 		opcodeNamesById.put(oper, operStr);
 	}
 
+	public static Type getType(ClassNode clazz) {
+		return Type.getObjectType(clazz.name);
+	}
+
+	public static boolean isStatic(MethodNode method) {
+		return (method.access & ACC_STATIC) != 0;
+	}
+
+	public static boolean isPrivateOrProtected(MethodNode method) {
+		return (method.access & (ACC_PRIVATE | ACC_PROTECTED)) != 0;
+	}
 }
 
 enum OpcodeGroup {

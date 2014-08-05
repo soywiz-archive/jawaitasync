@@ -75,10 +75,8 @@ public class SimpleTest {
 		TestAsyncClass.assertCallAsyncMethod("{1}[0:1000]{2}{3:hello world}[1000:1000]", CompositionWithArgumentsExample.class.getTypeName(), "testAsync", false);
 	}
 
-	/*
 	@org.junit.Test
 	public void testAccessPrivateMethod() throws Exception {
 		TestAsyncClass.assertCallAsyncMethod("public[0:1000]privateMethod", AccessPrivateMethodExample.class.getTypeName(), "testAsync", false);
 	}
-	*/
 }

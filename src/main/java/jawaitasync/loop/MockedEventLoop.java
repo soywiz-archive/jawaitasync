@@ -12,6 +12,7 @@ public class MockedEventLoop extends NormalEventLoop {
 
 	@Override
 	protected void handleException(Throwable exception) {
-		System.out.print("[Exception:" + exception.getMessage() + "]");
+		//exception.printStackTrace();
+		System.out.print("[" + exception.getClass().getSimpleName() + ":" + exception.getMessage() + "]");
 	}
 }

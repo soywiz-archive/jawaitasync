@@ -19,6 +19,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static jawaitasync.processor.ClassNodeUtils.getField;
+import static jawaitasync.processor.ClassNodeUtils.getLoad;
 import static jawaitasync.processor.ClassNodeUtils.getReturn;
 import static org.objectweb.asm.Opcodes.*;
 
@@ -118,6 +119,33 @@ public class AwaitProcessor {
 			if (methodNode.name.equals(name)) return methodNode;
 		}
 		return null;
+	}
+
+	private MethodNode getOrCreateMethodAccessMethod(ClassNode clazz, MethodNode originalMethodNode) throws Exception {
+		String createdMethodName = originalMethodNode.name + "$Async$methodAccess";
+
+		MethodNode createdMethod = ClassNodeUtils.getMethod(clazz, createdMethodName);
+
+		if (createdMethod == null) {
+			Type originalMethodType = Type.getMethodType(originalMethodNode.desc);
+			Type clazzType = ClassNodeUtils.getType(clazz);
+			List<Type> arguments = new LinkedList<>();
+			boolean isStaticOriginal = ClassNodeUtils.isStatic(originalMethodNode);
+			if (!isStaticOriginal) arguments.add(clazzType);
+			for (Type argument : originalMethodType.getArgumentTypes()) arguments.add(argument);
+			Type createdMethodType = Type.getMethodType(originalMethodType.getReturnType(), arguments.toArray(new Type[0]));
+			Type[] createdArguments = createdMethodType.getArgumentTypes();
+			createdMethod = new MethodNode(ACC_PUBLIC | ACC_STATIC | ACC_SYNTHETIC, createdMethodName, createdMethodType.getDescriptor(), null, null);
+
+			int invokeOpcode = isStaticOriginal ? INVOKESTATIC : INVOKEVIRTUAL;
+			for (int n = 0; n < createdArguments.length; n++) {
+				createdMethod.instructions.add(getLoad(createdArguments[n], n));
+			}
+			createdMethod.instructions.add(new MethodInsnNode(invokeOpcode, clazz.name, originalMethodNode.name, originalMethodNode.desc, false));
+			createdMethod.instructions.add(getReturn(createdMethodType.getReturnType()));
+			clazz.methods.add(createdMethod);
+		}
+		return createdMethod;
 	}
 
 	private MethodNode getOrCreateFieldAccessMethod(ClassNode outerClass, String fieldName, boolean write) {
@@ -366,8 +394,10 @@ public class AwaitProcessor {
 				if (methodNode.owner.equals(outerClass.name)) {
 					MethodNode method2 = ClassNodeUtils.getMethod(outerClass, methodNode.name, methodNode.desc);
 					if ((method2.access & (ACC_PRIVATE | ACC_PROTECTED)) != 0) {
-						System.out.println("calling a private class method!");
-						throw (new Exception("Not implemented"));
+						MethodNode method3 = this.getOrCreateMethodAccessMethod(outerClassModify, method2);
+
+						mn.instructions.insertBefore(node, new MethodInsnNode(INVOKESTATIC, outerClassModify.name, method3.name, method3.desc, false));
+						mn.instructions.remove(node);
 					}
 				}
 			}
@@ -498,4 +528,3 @@ public class AwaitProcessor {
 		}
 	}
 }
-
