@@ -13,10 +13,7 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.Frame;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 import static jawaitasync.processor.ClassNodeUtils.getField;
 import static jawaitasync.processor.ClassNodeUtils.getLoad;
@@ -27,6 +24,9 @@ import static org.objectweb.asm.Opcodes.*;
  * http://asm.ow2.org/asm40/javadoc/user/org/objectweb/asm/MethodVisitor.html
  */
 public class AwaitProcessor {
+	//static final boolean DEBUG = false;
+	static final boolean DEBUG = true;
+
 	static private boolean isAwaitMethodCall(AbstractInsnNode node) {
 		if (!(node instanceof MethodInsnNode)) return false;
 		MethodInsnNode methodNode = (MethodInsnNode) node;
@@ -180,8 +180,10 @@ public class AwaitProcessor {
 		Analyzer analyzer = new Analyzer(new TypeInterpreter());
 		Frame[] frames = analyzer.analyze(outerClass.name, method);
 		HashMap<AbstractInsnNode, Frame> framesByInstruction = new HashMap<>();
+		HashMap<AbstractInsnNode, Frame> previousFramesByInstruction = new HashMap<>();
 		for (int n = 0; n < method.instructions.size(); n++) {
 			framesByInstruction.put(method.instructions.get(n), frames[n]);
+			if (n > 0) previousFramesByInstruction.put(method.instructions.get(n - 1), frames[n - 1]);
 		}
 
 		int incrementalNameIndex = 0;
@@ -285,8 +287,10 @@ public class AwaitProcessor {
 				String localVarName;
 				String localVarDesc;
 				if (varNode.var >= localsByIndex.length) {
-					Type type = ((TypeValue)frame.getStack(isNodeWrite ? 1 : 0)).getType();
-					String localName = "unnamed_" + varNode.var;
+					// Probably a throwable that is injected into catch and finally blocks
+					// @TODO: check try...catch blocks to assert this
+					Type type = Type.getType(Throwable.class);
+					String localName = "throw_" + varNode.var;
 					String fieldName = "local_" + localName;
 					FieldNode field = ClassNodeUtils.getField(cn, fieldName);
 					if (field == null) {
@@ -459,6 +463,24 @@ public class AwaitProcessor {
 		return cn;
 	}
 
+	static private int indexOf(byte[] array, byte[] subarray) {
+		for (int n = 0; n < array.length - subarray.length; n++) {
+			boolean found = true;
+			for (int m = 0; m < subarray.length; m++) {
+				if (array[n + m] != array[m]) {
+					found = false;
+					break;
+				}
+			}
+			if (found) return n;
+		}
+		return -1;
+	}
+
+	static private boolean contains(byte[] array, byte[] subarray) {
+		return indexOf(array, subarray) >= 0;
+	}
+
 	public boolean processFile(SVfsFile classFile) throws Exception {
 		SVfsFile originalClassFile = classFile.getVfs().access(classFile.getName() + ".original");
 
@@ -468,8 +490,11 @@ public class AwaitProcessor {
 			originalClassFile.write(classFile.read());
 		}
 
-		ClassNode clazz = getClassFromBytes(originalClassFile.read());
-		ClassNode clazz2 = getClassFromBytes(originalClassFile.read());
+		byte[] originalClassBytes = originalClassFile.read();
+		if (!contains(originalClassBytes, Promise.class.getName().replace('.', '/').getBytes("UTF-8"))) return false;
+
+		ClassNode clazz = getClassFromBytes(originalClassBytes);
+		ClassNode clazz2 = getClassFromBytes(originalClassBytes);
 		clazz.version = V1_8;
 
 		int awaitMethodCount = 0;
@@ -519,6 +544,8 @@ public class AwaitProcessor {
 		}
 
 		if (awaitMethodCount > 0) {
+			if (DEBUG) new FileSVfs("c:/temp").access(clazz.name.replace('/', '.') + ".original.class").write(originalClassBytes);
+
 			classFile.write(getClassBytes(clazz));
 			originalClassFile.setLastModified(classFile.lastModified());
 			return true;
@@ -540,7 +567,7 @@ public class AwaitProcessor {
 			ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
 			cn.accept(cw);
 
-			//new FileSVfs("c:/temp").access(cn.name.replace('/', '.') + ".debug.class").write(cw.toByteArray());
+			if (DEBUG) new FileSVfs("c:/temp").access(cn.name.replace('/', '.') + ".debug.class").write(cw.toByteArray());
 
 			return cw.toByteArray();
 		} catch (Exception exception) {
@@ -548,7 +575,7 @@ public class AwaitProcessor {
 			ClassWriter cw = new ClassWriter(0);
 			cn.accept(cw);
 			try {
-				new FileSVfs("c:/temp").access(cn.name.replace('/', '.') + ".debug.class").write(cw.toByteArray());
+				if (DEBUG) new FileSVfs("c:/temp").access(cn.name.replace('/', '.') + ".debug.class").write(cw.toByteArray());
 			} catch (Throwable t) {
 
 			}

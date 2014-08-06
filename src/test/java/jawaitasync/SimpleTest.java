@@ -68,12 +68,10 @@ public class SimpleTest {
 		TestAsyncClass.assertCallAsyncMethod("[0:1000]", TryCatchExample2.class.getTypeName(), "testAsync", false);
 	}
 
-	/*
 	@org.junit.Test
 	public void testTryCatchFinally() throws Exception {
-		TestAsyncClass.assertCallAsyncMethod("--", TryCatchFinallyExample.class.getTypeName(), "testAsync", false);
+		TestAsyncClass.assertCallAsyncMethod("Started[0:1000]MyCatch:AfterASecondExceptionMyFinally", TryCatchFinallyExample.class.getTypeName(), "testAsync", false);
 	}
-	*/
 
 	@org.junit.Test
 	public void testCompositionWithArguments() throws Exception {
