@@ -22,4 +22,13 @@ public class TestAsyncClass {
 			}
 		}));
 	}
+
+	static public void assertCallNoOutputAsync(String className, String methodName, boolean asStatic) throws Exception {
+		EventLoopHolder.instance = new MockedEventLoop();
+
+		ClassLoader loader = new AwaitProcessorClassLoader(ClassLoader.getSystemClassLoader());
+		Class clazz = loader.loadClass(className);
+		Promise promise = (Promise) clazz.getMethod(methodName).invoke(asStatic ? null : clazz.newInstance());
+		EventLoopHolder.instance.loop();
+	}
 }

@@ -82,4 +82,21 @@ public class SimpleTest {
 	public void testAccessPrivateMethod() throws Exception {
 		TestAsyncClass.assertCallAsyncMethod("public[0:1000]privateMethod", AccessPrivateMethodExample.class.getTypeName(), "testAsync", false);
 	}
+
+	@org.junit.Test
+	public void testTest1Example() throws Exception {
+		TestAsyncClass.assertCallNoOutputAsync(Test1Example.class.getTypeName(), "testAsync", false);
+	}
+
+	/*
+	@org.junit.Test
+	public void testTest2Example() throws Exception {
+		TestAsyncClass.assertCallNoOutputAsync(Test2Example.class.getTypeName(), "testAsync", false);
+	}
+	*/
+
+	@org.junit.Test
+	public void testSeveralArguments() throws Exception {
+		TestAsyncClass.assertCallNoOutputAsync(SeveralArguments.class.getTypeName(), "testAsync", true);
+	}
 }

@@ -15,9 +15,7 @@ import org.objectweb.asm.tree.analysis.Frame;
 
 import java.util.*;
 
-import static jawaitasync.processor.ClassNodeUtils.getField;
-import static jawaitasync.processor.ClassNodeUtils.getLoad;
-import static jawaitasync.processor.ClassNodeUtils.getReturn;
+import static jawaitasync.processor.ClassNodeUtils.*;
 import static org.objectweb.asm.Opcodes.*;
 
 /**
@@ -104,8 +102,10 @@ public class AwaitProcessor {
 
 		for (int n = 0; n < argumentCount; n++) {
 			LocalVariableNode lv2 = localsByIndex[n];
+			Type lv2Type = Type.getType(lv2.desc);
 			mnc.instructions.add(new IntInsnNode(ALOAD, 0));
-			mnc.instructions.add(new IntInsnNode(ALOAD, n + 1));
+			//System.out.println("Argument:" + lv2Type + ";" + ClassNodeUtils.getOperandType(lv2Type));
+			mnc.instructions.add(getLoad(lv2Type, n + 1));
 			mnc.instructions.add(new FieldInsnNode(PUTFIELD, cn.name, "local_" + lv2.name, lv2.desc));
 		}
 
@@ -166,8 +166,15 @@ public class AwaitProcessor {
 			methodNode = new MethodNode(ACC_PUBLIC | ACC_STATIC, methodName, methodTypeDesc, null, null);
 
 			int opcode = write ? (isStatic ? PUTSTATIC : PUTFIELD) : (isStatic ? GETSTATIC : GETFIELD);
-			if (!isStatic) methodNode.instructions.add(new VarInsnNode(ALOAD, 0));
-			if (write) methodNode.instructions.add(new VarInsnNode(ALOAD, 1));
+			int argn = 0;
+			if (!isStatic) {
+				methodNode.instructions.add(getLoad(args.get(argn), argn));
+				argn++;
+			}
+			if (write) {
+				methodNode.instructions.add(getLoad(args.get(argn), argn));
+				argn++;
+			}
 			methodNode.instructions.add(new FieldInsnNode(opcode, outerClass.name, field.name, field.desc));
 			methodNode.instructions.add(write ? getReturn(Type.VOID_TYPE) : getReturn(Type.getType(field.desc)));
 			outerClass.methods.add(methodNode);
@@ -259,6 +266,7 @@ public class AwaitProcessor {
 
 		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
 			Frame frame = framesByInstruction.get(node);
+			Frame prevFrame = previousFramesByInstruction.get(node);
 			//System.out.println(frame);
 			if (node instanceof VarInsnNode) {
 				boolean isNodeWrite = false;
@@ -372,6 +380,8 @@ public class AwaitProcessor {
 							list.add(new InsnNode(SWAP));
 						}
 
+						//list.add(new InsnNode(POP));
+						//System.out.println(restoreStackNodes[m].desc);
 						list.add(new FieldInsnNode(PUTFIELD, cn.name, restoreStackNodes[m].name, restoreStackNodes[m].desc));
 					}
 				}
@@ -500,8 +510,8 @@ public class AwaitProcessor {
 
 			if (hasAwait(method)) {
 				awaitMethodCount++;
-				int argumentCount = getMethodArgumentCountIncludingThis(method);
-				//System.out.println("argumentCount:" + argumentCount);
+				int argumentCountIncludingThis = getMethodArgumentCountIncludingThis(method);
+				//System.out.println("argumentCountIncludingThis:" + argumentCountIncludingThis);
 
 				//System.out.println("Method with await! " + method.name);
 
@@ -520,9 +530,13 @@ public class AwaitProcessor {
 				method.instructions.add(new InsnNode(DUP));
 				MethodNode mnInit = (MethodNode) runClass.methods.get(0);
 				MethodNode mnRun = (MethodNode) runClass.methods.get(1);
-				//System.out.println(argumentCount + ";" + method.name + ";" + clazz.name);
-				for (int n = 0; n < argumentCount; n++) {
-					method.instructions.add(new IntInsnNode(ALOAD, n));
+				//System.out.println(argumentCountIncludingThis + ";" + method.name + ";" + clazz.name);
+
+				boolean isStatic = isStatic(method);
+				Type initType = Type.getMethodType(mnInit.desc);
+				Type[] initArguments = initType.getArgumentTypes();
+				for (int n = 0; n < initArguments.length; n++) {
+					method.instructions.add(getLoad(initArguments[n], n));
 				}
 				method.instructions.add(new MethodInsnNode(INVOKESPECIAL, runClass.name, mnInit.name, mnInit.desc, false));
 

@@ -1,13 +1,16 @@
+import jawaitasync.Promise;
 import jawaitasync.tools.AsyncSocket;
 import jawaitasync.tools.AsyncSocketListener;
 
+import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 
 import static jawaitasync.Promise.await;
+import static jawaitasync.Promise.complete;
 
 public class Start {
-	static public void start() throws Exception {
+	public void start() throws Exception {
 		//new CompositionExample().testAsync();
 		/*
 		Promise<Integer> p = longTask();
@@ -28,11 +31,22 @@ public class Start {
 		}
 	}
 
-	static public void handleSocket(AsyncSocket socket) throws UnsupportedEncodingException {
-		//String line = new String(await(socket.readUntilAsync(new byte[] { '\r', '\n' })), "UTF-8");
-		byte[] data = await(socket.readBytesAsync(64));
+	public Promise<byte[]> readUntilAsync(AsyncSocket socket, byte c) {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		byte[] readed;
+		do {
+			readed = await(socket.readBytesAsync(1));
+			baos.write(readed[0]);
+		} while(readed[0] != c);
+		return complete(baos.toByteArray());
+	}
+
+	public void handleSocket(AsyncSocket socket) throws UnsupportedEncodingException {
+		byte[] bytes = await(readUntilAsync(socket, (byte)'\n'));
+		String line = new String(bytes, "UTF-8");
+		//byte[] data = await(socket.readBytesAsync(64));
 		//socket.close();
-		System.out.println("readed: " + new String(data, "UTF-8"));
+		System.out.println("readed: " + line);
 	}
 
 /*

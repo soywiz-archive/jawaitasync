@@ -33,21 +33,36 @@ public class ClassNodeUtils {
 		return null;
 	}
 
+	static public char getOperandType(Type type) {
+		if (type == Type.VOID_TYPE) return 'V';
+		if (type == Type.INT_TYPE || type == Type.BYTE_TYPE || type == Type.SHORT_TYPE || type == Type.CHAR_TYPE) return 'I';
+		if (type == Type.FLOAT_TYPE) return 'F';
+		if (type == Type.DOUBLE_TYPE) return 'D';
+		if (type == Type.LONG_TYPE) return 'L';
+		return 'A';
+	}
+
 	static public AbstractInsnNode getLoad(Type type, int index) {
-		if (type == Type.INT_TYPE) return new IntInsnNode(ILOAD, index);
-		if (type == Type.FLOAT_TYPE) return new IntInsnNode(FLOAD, index);
-		if (type == Type.DOUBLE_TYPE) return new IntInsnNode(DLOAD, index);
-		if (type == Type.LONG_TYPE) return new IntInsnNode(LLOAD, index);
-		return new IntInsnNode(ALOAD, index);
+		switch (getOperandType(type)) {
+			case 'I': return new IntInsnNode(ILOAD, index);
+			case 'F': return new IntInsnNode(FLOAD, index);
+			case 'D': return new IntInsnNode(DLOAD, index);
+			case 'L': return new IntInsnNode(LLOAD, index);
+			case 'A': return new IntInsnNode(ALOAD, index);
+		}
+		throw(new RuntimeException());
 	}
 
 	static public AbstractInsnNode getReturn(Type type) {
-		if (type == Type.VOID_TYPE) return new InsnNode(RETURN);
-		if (type == Type.INT_TYPE) return new InsnNode(IRETURN);
-		if (type == Type.FLOAT_TYPE) return new InsnNode(FRETURN);
-		if (type == Type.DOUBLE_TYPE) return new InsnNode(DRETURN);
-		if (type == Type.LONG_TYPE) return new InsnNode(LRETURN);
-		return new InsnNode(ARETURN);
+		switch (getOperandType(type)) {
+			case 'V': return new InsnNode(RETURN);
+			case 'I': return new InsnNode(IRETURN);
+			case 'F': return new InsnNode(FRETURN);
+			case 'D': return new InsnNode(DRETURN);
+			case 'L': return new InsnNode(LRETURN);
+			case 'A': return new InsnNode(ARETURN);
+		}
+		throw(new RuntimeException());
 	}
 
 	public static String toString(AbstractInsnNode node) {

@@ -48,4 +48,10 @@ public class Promise<T> {
 	static native public <T> T await(Promise<T> promise);
 
 	static native public <T> Promise<T> complete(T promise);
+
+	public static <T> Promise<T> resolved(T value) {
+		Promise<T> promise = new Promise<>();
+		promise.resolve(value);
+		return promise;
+	}
 }

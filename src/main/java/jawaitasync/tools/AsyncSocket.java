@@ -2,11 +2,15 @@ package jawaitasync.tools;
 
 import jawaitasync.Promise;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.LinkedList;
 import java.util.Queue;
+
+import static jawaitasync.Promise.await;
+import static jawaitasync.Promise.complete;
 
 public class AsyncSocket {
 	SocketChannel socketChannel;
@@ -56,6 +60,13 @@ public class AsyncSocket {
 		return promise;
 	}
 	*/
+
+	public Promise<byte[]> readAnyBytes() {
+		Promise<byte[]> promise = new Promise<>();
+		requests.add(new ReadRequest(-1, promise));
+		tryCouple();
+		return promise;
+	}
 
 	public Promise<byte[]> readBytesAsync(int count) {
 		Promise<byte[]> promise = new Promise<>();
