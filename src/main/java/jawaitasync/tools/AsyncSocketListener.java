@@ -36,7 +36,7 @@ public class AsyncSocketListener {
 					while (true) {
 						//System.out.println("select0");
 						int readyChannels = selector.select();
-						System.out.println("select: " + readyChannels);
+						//System.out.println("select: " + readyChannels);
 						if (readyChannels == 0) continue;
 
 						for (SelectionKey key : selector.selectedKeys()) {
@@ -50,22 +50,24 @@ public class AsyncSocketListener {
 									AsyncSocket as = new AsyncSocket(sc);
 									sc.keyFor(selector).attach(as);
 									onSocket(as);
-									System.out.println("accepted1");
+									//System.out.println("accepted1");
 								} else if (key.isReadable()) {
 									AsyncSocket as = (AsyncSocket) key.attachment();
-									ByteBuffer bb = ByteBuffer.allocate(64);
+									ByteBuffer bb = ByteBuffer.allocate(8 * 1024);
 									int len = as.socketChannel.read(bb);
 									if (len < 0) {
 										// Disconnected!
 										as.onClose();
 									} else {
 										bb.flip();
+										//System.out.println("remaining:" + bb.remaining());
+
 										as.onData(bb);
 									}
 									//System.out.println(as);
 								}
 							} catch (Exception e) {
-								e.printStackTrace();
+								//e.printStackTrace();
 								key.cancel();
 							}
 						}
@@ -100,7 +102,7 @@ public class AsyncSocketListener {
 		while (asList.size() > 0 && promiseList.size() > 0) {
 			AsyncSocket as = asList.poll();
 			Promise<AsyncSocket> promise = promiseList.poll();
-			System.out.println("resolved!");
+			//System.out.println("resolved!");
 			promise.resolve(as);
 		}
 	}

@@ -95,6 +95,13 @@ public class SimpleTest {
 	}
 	*/
 
+	/*
+	@org.junit.Test
+	public void testTest3Example() throws Exception {
+		TestAsyncClass.assertCallAsyncMethod("[0:1000][1000:1000]107", Test3Example.class.getTypeName(), "testAsync", false);
+	}
+	*/
+
 	@org.junit.Test
 	public void testSeveralArguments() throws Exception {
 		TestAsyncClass.assertCallNoOutputAsync(SeveralArguments.class.getTypeName(), "testAsync", true);

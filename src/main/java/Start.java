@@ -2,7 +2,6 @@ import jawaitasync.Promise;
 import jawaitasync.tools.AsyncSocket;
 import jawaitasync.tools.AsyncSocketListener;
 
-import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 
@@ -23,39 +22,63 @@ public class Start {
 		AsyncSocketListener asl = new AsyncSocketListener();
 		System.out.println("Started");
 		await(asl.bindAsync(new InetSocketAddress("127.0.0.1", 8081)));
+		System.out.println("listening at 8081");
 		while (true) {
-			System.out.println("listening at 8081");
 			AsyncSocket socket = await(asl.acceptAsync());
-			System.out.println("accepted: " + socket);
+			//System.out.println("accepted: " + socket);
 			handleSocket(socket);
 		}
 	}
 
-	public Promise<byte[]> readUntilAsync(AsyncSocket socket, byte c) {
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		byte[] readed;
-		do {
-			readed = await(socket.readBytesAsync(1));
-			baos.write(readed[0]);
-		} while(readed[0] != c);
-		return complete(baos.toByteArray());
+	public Promise<String> readLineAsync(AsyncSocket socket) throws UnsupportedEncodingException {
+		byte[] bytes = await(socket.readUntilAsync((byte)'\n'));
+		return complete(new String(bytes, "UTF-8"));
 	}
 
-	public void handleSocket(AsyncSocket socket) throws UnsupportedEncodingException {
-		byte[] bytes = await(readUntilAsync(socket, (byte)'\n'));
-		String line = new String(bytes, "UTF-8");
-		//byte[] data = await(socket.readBytesAsync(64));
-		//socket.close();
-		System.out.println("readed: " + line);
+	private Promise<Request> readHeadersAsync(AsyncSocket socket) throws UnsupportedEncodingException {
+		String line;
+
+		Request request = new Request();
+		line = await(readLineAsync(socket)).trim();
+		String[] parts = line.split(" ");
+		request.method = parts[0];
+
+		while (true) {
+			line = await(readLineAsync(socket)).trim();
+			if (line.length() == 0) break;
+			String[] headerParts = line.split(":", 2);
+			request.headers.add(new RequestHeader(headerParts[0].trim(), headerParts[1].trim()));
+			//System.out.println("::" + line);
+		}
+
+		return complete(request);
 	}
 
-/*
-	static public Promise<Integer> longTask() throws Exception {
-		return PromiseTools.runTaskAsync(() -> {
-			long m = 0;
-			for (long n = 0; n < 2000000000L; n++) m += n;
-			return (int)m;
-		});
+	public void handleSocket(AsyncSocket socket) throws Exception {
+		try {
+			Request request = await(readHeadersAsync(socket));
+
+			String content = request.method + ": Hello World!\n";
+
+			for (int n = 0; n < request.headers.size(); n++) {
+				RequestHeader header = request.headers.get(n);
+				//content += n + ": " + n + "<br />\n";
+				content += header.getKey() + ": " + header.getValue() + "<br />\n";
+			}
+
+			// Not working!
+			//for (RequestHeader header : request.headers) {
+			//	content += header.getKey() + ": " + header.getValue() + "<br />\n";
+			//}
+
+			//byte[] contentBytes = content.getBytes();
+			socket
+				.write(("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + content.getBytes().length + "\r\n\r\n").getBytes())
+				.write(content.getBytes())
+			;
+		} finally {
+			socket.close();
+		}
 	}
-*/
 }
+
