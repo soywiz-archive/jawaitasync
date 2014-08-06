@@ -24,8 +24,8 @@ import static org.objectweb.asm.Opcodes.*;
  * http://asm.ow2.org/asm40/javadoc/user/org/objectweb/asm/MethodVisitor.html
  */
 public class AwaitProcessor {
-	//static final boolean DEBUG = false;
-	static final boolean DEBUG = true;
+	static final boolean DEBUG = false;
+	//static final boolean DEBUG = true;
 
 	static private boolean isAwaitMethodCall(AbstractInsnNode node) {
 		if (!(node instanceof MethodInsnNode)) return false;
@@ -464,15 +464,11 @@ public class AwaitProcessor {
 	}
 
 	static private int indexOf(byte[] array, byte[] subarray) {
-		for (int n = 0; n < array.length - subarray.length; n++) {
-			boolean found = true;
+		outer: for (int n = 0; n < array.length - subarray.length; n++) {
 			for (int m = 0; m < subarray.length; m++) {
-				if (array[n + m] != array[m]) {
-					found = false;
-					break;
-				}
+				if (array[n + m] != array[m]) continue outer;
 			}
-			if (found) return n;
+			return n;
 		}
 		return -1;
 	}
