@@ -91,16 +91,16 @@ public class SimpleTest {
 	/*
 	@org.junit.Test
 	public void testTest2Example() throws Exception {
+		// Can't store an unitialized object into a local. This is a problem that would require major rewrittings,
+		// we shouldn't support so probably awaiting in a constructor.
 		TestAsyncClass.assertCallNoOutputAsync(Test2Example.class.getTypeName(), "testAsync", false);
 	}
 	*/
 
-	/*
 	@org.junit.Test
 	public void testTest3Example() throws Exception {
-		TestAsyncClass.assertCallAsyncMethod("[0:1000][1000:1000]107", Test3Example.class.getTypeName(), "testAsync", false);
+		TestAsyncClass.assertCallAsyncMethod("107", Test3Example.class.getTypeName(), "testAsync", false);
 	}
-	*/
 
 	@org.junit.Test
 	public void testSeveralArguments() throws Exception {

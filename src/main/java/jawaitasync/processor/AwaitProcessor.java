@@ -22,48 +22,6 @@ import static org.objectweb.asm.Opcodes.*;
  * http://asm.ow2.org/asm40/javadoc/user/org/objectweb/asm/MethodVisitor.html
  */
 public class AwaitProcessor {
-	static final boolean DEBUG = false;
-	//static final boolean DEBUG = true;
-
-	static private boolean isAwaitMethodCall(AbstractInsnNode node) {
-		if (!(node instanceof MethodInsnNode)) return false;
-		MethodInsnNode methodNode = (MethodInsnNode) node;
-		if (!methodNode.owner.equals("jawaitasync/Promise")) return false;
-		if (!methodNode.name.equals("await")) return false;
-		return true;
-	}
-
-	static private boolean isCompleteMethodCall(AbstractInsnNode node) {
-		if (!(node instanceof MethodInsnNode)) return false;
-		MethodInsnNode methodNode = (MethodInsnNode) node;
-		if (!methodNode.owner.equals("jawaitasync/Promise")) return false;
-		if (!methodNode.name.equals("complete")) return false;
-		return true;
-	}
-
-	private boolean hasAwait(MethodNode method) {
-		Linq<AbstractInsnNode> instructions = new Linq<AbstractInsnNode>(method.instructions.toArray());
-		for (AbstractInsnNode node : instructions) {
-			if (isAwaitMethodCall(node)) return true;
-		}
-		return false;
-	}
-
-	private int getMethodArgumentCountIncludingThis(MethodNode method) {
-		return Type.getMethodType(method.desc).getArgumentTypes().length + (((method.access & ACC_STATIC) != 0) ? 0 : 1);
-	}
-
-	private LocalVariableNode[] getLocalsByIndex(MethodNode method) {
-		int maxIndex = 0;
-		for (LocalVariableNode lv : (LocalVariableNode[]) new Linq(method.localVariables).toArray(LocalVariableNode.class)) {
-			maxIndex = Math.max(maxIndex, lv.index);
-		}
-		LocalVariableNode[] nodes = new LocalVariableNode[maxIndex + 1];
-		for (LocalVariableNode lv : (LocalVariableNode[]) new Linq(method.localVariables).toArray(LocalVariableNode.class)) {
-			nodes[lv.index] = lv;
-		}
-		return nodes;
-	}
 
 	static final Type Promise_TYPE = Type.getType(Promise.class);
 	static final Type Object_TYPE = Type.getType(Object.class);
@@ -71,8 +29,8 @@ public class AwaitProcessor {
 	static final Type Double_TYPE = Type.getType(Double.class);
 
 	private MethodNode createTransformedConstructor(ClassNode cn, MethodNode method) throws Exception {
-		int argumentCount = getMethodArgumentCountIncludingThis(method);
-		LocalVariableNode[] localsByIndex = getLocalsByIndex(method);
+		int argumentCount = AwaitTools.getMethodArgumentCountIncludingThis(method);
+		LocalVariableNode[] localsByIndex = AwaitTools.getLocalsByIndex(method);
 
 		Type[] args = new Type[argumentCount];
 
@@ -184,14 +142,7 @@ public class AwaitProcessor {
 	}
 
 	private ClassNode createTransformedClassForMethod(ClassNode outerClass, ClassNode outerClassModify, MethodNode method) throws Exception {
-		Analyzer analyzer = new Analyzer(new TypeInterpreter());
-		Frame[] frames = analyzer.analyze(outerClass.name, method);
-		HashMap<AbstractInsnNode, Frame> framesByInstruction = new HashMap<>();
-		HashMap<AbstractInsnNode, Frame> previousFramesByInstruction = new HashMap<>();
-		for (int n = 0; n < method.instructions.size(); n++) {
-			framesByInstruction.put(method.instructions.get(n), frames[n]);
-			if (n > 0) previousFramesByInstruction.put(method.instructions.get(n - 1), frames[n - 1]);
-		}
+		AwaitAnalyzer awaitAnalyzer = new AwaitAnalyzer(outerClass, method);
 
 		int incrementalNameIndex = 0;
 
@@ -220,12 +171,14 @@ public class AwaitProcessor {
 		cn.fields.add(new FieldNode(ACC_PUBLIC, "state", "I", null, null));
 		cn.fields.add(new FieldNode(ACC_PUBLIC, "promise", Promise_TYPE.getDescriptor(), null, null));
 
-		int argumentCount = getMethodArgumentCountIncludingThis(method);
-		LocalVariableNode[] localsByIndex = getLocalsByIndex(method);
+		int argumentCount = AwaitTools.getMethodArgumentCountIncludingThis(method);
+		LocalVariableNode[] localsByIndex = AwaitTools.getLocalsByIndex(method);
 
-		for (LocalVariableNode lv : localsByIndex) {
-			cn.fields.add(new FieldNode(ACC_PUBLIC, "local_" + lv.name, lv.desc, null, null));
-			//System.out.println("local[]:" + lv.name + ", " + lv.desc + ", " + lv.index);
+		for (LocalVariableNode lv : (LocalVariableNode[])method.localVariables.toArray(new LocalVariableNode[0])) {
+			String localName = "local_" + lv.name;
+			if (ClassNodeUtils.getField(cn, localName) == null) {
+				cn.fields.add(new FieldNode(ACC_PUBLIC, localName, lv.desc, null, null));
+			}
 		}
 
 		cn.methods.add(createTransformedConstructor(cn, method));
@@ -237,6 +190,7 @@ public class AwaitProcessor {
 		mn.instructions.add(method.instructions);
 		mn.tryCatchBlocks = method.tryCatchBlocks;
 		//mn.tryCatchBlocks
+
 
 		//mn.localVariables.add(new LocalVariableNode("this", classType.getDescriptor(), cn.signature, (LabelNode)mn.instructions.getFirst(), (LabelNode)mn.instructions.getLast(), 0));
 
@@ -259,14 +213,10 @@ public class AwaitProcessor {
 		stateLabelNodes.add(startLabel);
 		mn.instructions.insert(mn.instructions.getFirst(), startLabel);
 
-		for (TryCatchBlockNode node : new Linq<TryCatchBlockNode>(mn.tryCatchBlocks)) {
-			//mn.instructions.
-			//node.start.getNext()
-		}
+		for (AnalyzedFrame af : awaitAnalyzer.prepare(mn.instructions)) {
+			AbstractInsnNode node = af.instruction;
+			Frame frame = af.frame;
 
-		for (AbstractInsnNode node : new Linq<AbstractInsnNode>(mn.instructions.toArray())) {
-			Frame frame = framesByInstruction.get(node);
-			Frame prevFrame = previousFramesByInstruction.get(node);
 			//System.out.println(frame);
 			if (node instanceof VarInsnNode) {
 				boolean isNodeWrite = false;
@@ -307,7 +257,10 @@ public class AwaitProcessor {
 					localVarName = localName;
 					localVarDesc = type.getDescriptor();
 				} else {
-					LocalVariableNode localVar = (LocalVariableNode) localsByIndex[varNode.var];
+					LocalVariableNode localVar = (LocalVariableNode) af.next.locals[varNode.var];
+					LocalVariableNode localVar2 = (LocalVariableNode) localsByIndex[varNode.var];
+					//System.out.println("local:" + localVar.name + ", " + ((localVar2 != null) ? localVar2.name : "--"));
+					//LocalVariableNode localVar = af.locals[varNode.var];
 					localVarName = localVar.name;
 					localVarDesc = localVar.desc;
 				}
@@ -355,7 +308,7 @@ public class AwaitProcessor {
 					}
 				}
 			}
-			if (isAwaitMethodCall(node)) {
+			if (AwaitTools.isAwaitMethodCall(node)) {
 				//System.out.println("await!");
 				InsnList list = new InsnList();
 				list.add(new VarInsnNode(ALOAD, 0));
@@ -365,24 +318,25 @@ public class AwaitProcessor {
 				list.add(new FieldInsnNode(PUTFIELD, cn.name, "state", "I"));
 
 				// Backup stack
-				FieldNode[] restoreStackNodes = null;
+				FieldNode[] restoreStackFields = null;
 
-				if (frame.getStackSize() >= 2) {
-					restoreStackNodes = new FieldNode[frame.getStackSize() - 1];
-					for (int m = restoreStackNodes.length - 1; m >= 0; m--) {
-						cn.fields.add(restoreStackNodes[m] = new FieldNode(ACC_PRIVATE, "$$" + incrementalNameIndex++, ((TypeValue) frame.getStack(m)).getType().getDescriptor(), null, null));
+				Frame storeRestoreFrame = af.frame;
+				if (storeRestoreFrame.getStackSize() >= 2) {
+
+					restoreStackFields = new FieldNode[storeRestoreFrame.getStackSize() - 1];
+					//restoreStackFields = new FieldNode[1];
+					for (int m = restoreStackFields.length - 1; m >= 0; m--) {
+						cn.fields.add(restoreStackFields[m] = new FieldNode(ACC_PRIVATE, "$$" + incrementalNameIndex++, ((TypeValue) storeRestoreFrame.getStack(m)).getType().getDescriptor(), null, null));
 						list.add(new VarInsnNode(ALOAD, 0));
 
-						if (Type.getType(restoreStackNodes[m].desc).getSize() == 2) {
+						if (Type.getType(restoreStackFields[m].desc).getSize() == 2) {
 							list.add(new InsnNode(DUP_X2));
 							list.add(new InsnNode(POP));
 						} else {
 							list.add(new InsnNode(SWAP));
 						}
 
-						//list.add(new InsnNode(POP));
-						//System.out.println(restoreStackNodes[m].desc);
-						list.add(new FieldInsnNode(PUTFIELD, cn.name, restoreStackNodes[m].name, restoreStackNodes[m].desc));
+						list.add(new FieldInsnNode(PUTFIELD, cn.name, restoreStackFields[m].name, restoreStackFields[m].desc));
 					}
 				}
 
@@ -391,10 +345,10 @@ public class AwaitProcessor {
 				stateLabelNodes.add(awaitLabel);
 				list.add(awaitLabel);
 
-				if (restoreStackNodes != null) {
-					for (int m = 0; m < restoreStackNodes.length; m++) {
+				if (restoreStackFields != null) {
+					for (int m = 0; m < restoreStackFields.length; m++) {
 						list.add(new VarInsnNode(ALOAD, 0));
-						list.add(new FieldInsnNode(GETFIELD, cn.name, restoreStackNodes[m].name, restoreStackNodes[m].desc));
+						list.add(new FieldInsnNode(GETFIELD, cn.name, restoreStackFields[m].name, restoreStackFields[m].desc));
 					}
 				}
 
@@ -419,7 +373,7 @@ public class AwaitProcessor {
 				mn.instructions.remove(node);
 			}
 
-			if (isCompleteMethodCall(node)) {
+			if (AwaitTools.isCompleteMethodCall(node)) {
 				InsnList list = new InsnList();
 				list.add(new IntInsnNode(ALOAD, 0));
 				list.add(new FieldInsnNode(GETFIELD, cn.name, "promise", Promise_TYPE.getDescriptor()));
@@ -473,20 +427,6 @@ public class AwaitProcessor {
 		return cn;
 	}
 
-	static private int indexOf(byte[] array, byte[] subarray) {
-		outer: for (int n = 0; n < array.length - subarray.length; n++) {
-			for (int m = 0; m < subarray.length; m++) {
-				if (array[n + m] != array[m]) continue outer;
-			}
-			return n;
-		}
-		return -1;
-	}
-
-	static private boolean contains(byte[] array, byte[] subarray) {
-		return indexOf(array, subarray) >= 0;
-	}
-
 	public boolean processFile(SVfsFile classFile) throws Exception {
 		SVfsFile originalClassFile = classFile.getVfs().access(classFile.getName() + ".original");
 
@@ -497,7 +437,10 @@ public class AwaitProcessor {
 		}
 
 		byte[] originalClassBytes = originalClassFile.read();
-		if (!contains(originalClassBytes, Promise.class.getName().replace('.', '/').getBytes("UTF-8"))) return false;
+
+		if (!AwaitTools.classReferencesPromises(originalClassBytes)) {
+			return false;
+		}
 
 		ClassNode clazz = getClassFromBytes(originalClassBytes);
 		ClassNode clazz2 = getClassFromBytes(originalClassBytes);
@@ -508,9 +451,9 @@ public class AwaitProcessor {
 		for (Object _method : clazz.methods.toArray()) {
 			MethodNode method = (MethodNode) _method;
 
-			if (hasAwait(method)) {
+			if (AwaitTools.hasAwait(method)) {
 				awaitMethodCount++;
-				int argumentCountIncludingThis = getMethodArgumentCountIncludingThis(method);
+				int argumentCountIncludingThis = AwaitTools.getMethodArgumentCountIncludingThis(method);
 				//System.out.println("argumentCountIncludingThis:" + argumentCountIncludingThis);
 
 				//System.out.println("Method with await! " + method.name);
@@ -525,7 +468,7 @@ public class AwaitProcessor {
 				//System.out.println(outputFile.getParent());
 
 				//System.out.println(runClass.name + ".class");
-				classFile.getVfs().access(runClass.name + ".class").write(getClassBytes(runClass));
+				classFile.getVfs().access(runClass.name + ".class").write(AwaitTools.getClassBytes(runClass));
 				method.instructions.add(new TypeInsnNode(NEW, runClass.name));
 				method.instructions.add(new InsnNode(DUP));
 				MethodNode mnInit = (MethodNode) runClass.methods.get(0);
@@ -554,9 +497,9 @@ public class AwaitProcessor {
 		}
 
 		if (awaitMethodCount > 0) {
-			if (DEBUG) new FileSVfs("c:/temp").access(clazz.name.replace('/', '.') + ".original.class").write(originalClassBytes);
+			AwaitTools.writeOriginalClass(clazz, originalClassBytes);
 
-			classFile.write(getClassBytes(clazz));
+			classFile.write(AwaitTools.getClassBytes(clazz));
 			originalClassFile.setLastModified(classFile.lastModified());
 			return true;
 		} else {
@@ -570,26 +513,5 @@ public class AwaitProcessor {
 		cr.accept(cn, 0);
 		//cn.accept(cr, 0);
 		return cn;
-	}
-
-	private static byte[] getClassBytes(ClassNode cn) throws Exception {
-		try {
-			ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-			cn.accept(cw);
-
-			if (DEBUG) new FileSVfs("c:/temp").access(cn.name.replace('/', '.') + ".debug.class").write(cw.toByteArray());
-
-			return cw.toByteArray();
-		} catch (Exception exception) {
-			exception.printStackTrace();
-			ClassWriter cw = new ClassWriter(0);
-			cn.accept(cw);
-			try {
-				if (DEBUG) new FileSVfs("c:/temp").access(cn.name.replace('/', '.') + ".debug.class").write(cw.toByteArray());
-			} catch (Throwable t) {
-
-			}
-			throw (exception);
-		}
 	}
 }
