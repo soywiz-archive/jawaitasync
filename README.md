@@ -48,6 +48,8 @@ public class TryCatchExample {
 }
 ```
 
+Examples: https://github.com/soywiz/jawaitasync/tree/master/src/main/java/samples
+
 How does this works?
 
 This behaviour is implemented post-processing class files.
